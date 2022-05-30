@@ -63,70 +63,12 @@ class App extends Component {
       showLines: false,
       showSelection: false,
       isBusy: true,
-      init: false,
     };
-
-    this.audio_pachi = []
-    for (var i=0; i<4; i++){
-      this.audio_pachi.push(new Audio(`/audio/${i}.mp3`))
-    }
-
   }
-  async playSound(){
-    let index = Math.floor(Math.random() * this.audio_pachi.length)
-    this.audio_pachi[index].play()
-  }
-  async initBoard() {
-    const result = await axios({
-      method: 'post',
-      url: '/boardsize',
-      data: {
-        size: 11,
-      }
-    });
-    const result2 = await axios({
-      method: 'post',
-      url: '/clearboard',
-    });
-    this.setState({'isBusy':false, init:true})
-    console.log('end axio')
-  };
-  async play(actor, pos) {
-    this.playSound()
-    const result = await axios({
-      method: 'post',
-      url: '/play',
-      data: {
-        actor,
-        pos,
-      }
-    });
-    const rival_pos = await this.genmove(-1)
-    let newboard = this.state.board
-    console.log('rival_pos', rival_pos)
-    newboard[rival_pos[1]][rival_pos[0]] = -1
-    this.setState({'isBusy':false, board:newboard})
-    this.playSound()
-    console.log('end play')
-  };
-  async genmove(actor) {
-    const result = await axios({
-      method: 'post',
-      url: '/genmove',
-      data: {
-        actor,
-      }
-    });
-    this.setState({'isBusy':false})
-    console.log('end genmove')
-    return result.data.pos
-  };
 
   render() {
     let {
       vertexSize,
-      board,
-      isBusy,
       showCoordinates,
       alternateCoordinates,
       showCorner,
@@ -139,15 +81,37 @@ class App extends Component {
       showGhostStones,
       showLines,
       showSelection,
-      init,
     } = this.state;
-
+    // const [bdata, setBdata] = useState({size:11 });
+    // const [bdata, setBdata] = useState(this.state);
     console.log('in render')
+    useEffect(() => {
+      console.log('in effect')
+      const fetchData = async () => {
+        const result = await axios({
+          method: 'post',
+          url: '/boardsize',
+          data: {
+            size: 11,
+          }
+        });
+        const result2 = await axios({
+          method: 'post',
+          url: '/clearboard',
+        });
+  
+        // setBdata({size:11 });
+        // setBdata({...bdata, 'isBusy':false})
+        this.setState({'isBusy':false})
+        console.log('end axio')
+      };
+  
+      fetchData();
+      this.state.isBusy = false
+      console.log('end effect')
 
 
-    if(!init)
-      this.initBoard();
-
+    }, []);
     console.log('in render2')
     return h(
       "section",
@@ -167,13 +131,13 @@ class App extends Component {
             onContextMenu: (evt) => evt.preventDefault(),
           },
 
-          vertexSize,
+          vertexSize: this.state.vertexSize,
           animate: true,
-          busy: isBusy,
-          coordX: alternateCoordinates ? (i) => chineseCoord[i] : undefined,
-          coordY: alternateCoordinates ? (i) => i + 1 : undefined,
+          busy: this.state.isBusy,
+          coordX: this.state.alternateCoordinates ? (i) => chineseCoord[i] : undefined,
+          coordY: this.state.alternateCoordinates ? (i) => i + 1 : undefined,
 
-          signMap: board,
+          signMap: this.state.board,
           showCoordinates: true,
           // fuzzyStonePlacement,
           // animateStonePlacement,
@@ -187,9 +151,6 @@ class App extends Component {
             //   let newBoard = this.state.board.makeMove(sign, [x, y])
 
             //   this.setState({board: newBoard})
-            board[y][x] = 1
-            this.setState({board: board, isBusy:true})
-            this.play(1, [x, y])
           },
         })
       )

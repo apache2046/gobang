@@ -38,6 +38,7 @@ module.exports = {
       patterns: [
         { from: "src/css", to: "css" },
         { from: "src/imgs", to: "imgs" },
+        { from: "src/audio", to: "audio" },
       ],
     }),
   ],
