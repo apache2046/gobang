@@ -1,5 +1,5 @@
-const { h, render, Component} = require("preact");
-const {useState, useEffect} = require('preact/hooks');
+const { h, render, Component } = require("preact");
+const { useState, useEffect } = require('preact/hooks');
 
 const { Goban } = require("@sabaki/shudan");
 const axios = require('axios').default
@@ -31,12 +31,19 @@ class App extends Component {
     super(props);
 
     let board_size = 11
-    let signMap = new Array(board_size);
-    for (var i = 0; i < board_size; i++) {
-      signMap[i] = new Array(board_size);
-      // for(var j = 0; j< board_size; j++)
-      //   signMap[i][j] = 0;
+
+    let emptyBoard = new Array(board_size);
+    for (let i = 0; i < board_size; i++) {
+      emptyBoard[i] = new Array(board_size);
     }
+
+    let emptyMarkerMap = new Array(board_size);
+    for (let i = 0; i < board_size; i++) {
+      emptyMarkerMap[i] = new Array(board_size);
+      for (let j = 0; j < board_size; j++)
+        emptyMarkerMap[i][j] = null
+    }
+    this.emptyMarkerMap = emptyMarkerMap
     // let signMap = [
     //   [0,0,0,0,0,0,0,0],
     //   [0,0,0,0,0,0,0,0],
@@ -48,7 +55,7 @@ class App extends Component {
     //   [0,0,0,0,0,0,0,0],
     // ]
     this.state = {
-      board: signMap,
+      board: emptyBoard,
       vertexSize: 36,//24,
       showCoordinates: true,
       alternateCoordinates: false,
@@ -58,7 +65,7 @@ class App extends Component {
       animateStonePlacement: false,
       showPaintMap: false,
       showHeatMap: false,
-      showMarkerMap: false,
+      markerMap: emptyMarkerMap,
       showGhostStones: false,
       showLines: false,
       showSelection: false,
@@ -67,12 +74,12 @@ class App extends Component {
     };
 
     this.audio_pachi = []
-    for (var i=0; i<4; i++){
+    for (let i = 0; i < 4; i++) {
       this.audio_pachi.push(new Audio(`/audio/${i}.mp3`))
     }
 
   }
-  async playSound(){
+  async playSound() {
     let index = Math.floor(Math.random() * this.audio_pachi.length)
     this.audio_pachi[index].play()
   }
@@ -88,11 +95,22 @@ class App extends Component {
       method: 'post',
       url: '/clearboard',
     });
-    this.setState({'isBusy':false, init:true})
+    this.setState({ 'isBusy': false, init: true })
     console.log('end axio')
   };
-  async play(actor, pos) {
+  async placeStone(actor, pos) {
+    let x = pos[0]
+    let y = pos[1]
+
     this.playSound()
+    let newBoard = this.state.board
+    newBoard[y][x] = actor
+    let newMarkerMap = structuredClone(this.emptyMarkerMap)
+    newMarkerMap[y][x] = { type: 'point' }
+
+    this.setState({ board: newBoard, markerMap: newMarkerMap })
+  }
+  async play(actor, pos) {
     const result = await axios({
       method: 'post',
       url: '/play',
@@ -101,13 +119,8 @@ class App extends Component {
         pos,
       }
     });
-    const rival_pos = await this.genmove(-1)
-    let newboard = this.state.board
-    console.log('rival_pos', rival_pos)
-    newboard[rival_pos[1]][rival_pos[0]] = -1
-    this.setState({'isBusy':false, board:newboard})
-    this.playSound()
     console.log('end play')
+    return pos
   };
   async genmove(actor) {
     const result = await axios({
@@ -117,7 +130,7 @@ class App extends Component {
         actor,
       }
     });
-    this.setState({'isBusy':false})
+    // this.setState({ 'isBusy': false })
     console.log('end genmove')
     return result.data.pos
   };
@@ -135,7 +148,7 @@ class App extends Component {
       animateStonePlacement,
       showPaintMap,
       showHeatMap,
-      showMarkerMap,
+      markerMap,
       showGhostStones,
       showLines,
       showSelection,
@@ -145,7 +158,7 @@ class App extends Component {
     console.log('in render')
 
 
-    if(!init)
+    if (!init)
       this.initBoard();
 
     console.log('in render2')
@@ -179,7 +192,7 @@ class App extends Component {
           // animateStonePlacement,
           // paintMap: showPaintMap && paintMap,
           // heatMap: showHeatMap && heatMap,
-          // markerMap: showMarkerMap && markerMap,
+          markerMap,
           // ghostStoneMap: showGhostStones && ghostStoneMap,
 
           onVertexMouseUp: (evt, [x, y]) => {
@@ -187,9 +200,15 @@ class App extends Component {
             //   let newBoard = this.state.board.makeMove(sign, [x, y])
 
             //   this.setState({board: newBoard})
-            board[y][x] = 1
-            this.setState({board: board, isBusy:true})
-            this.play(1, [x, y])
+            // board[y][x] = 1
+            // this.setState({ board: board, isBusy: true })
+            // this.play(1, [x, y])
+            if(this.waiting)
+              return
+            this.waiting = true
+            this.play(1, [x, y]).then((pos)=>{this.placeStone(1, pos)}).then(()=>{
+              return this.genmove(-1).then((pos)=>{this.placeStone(-1, pos)})
+            }).then(()=>{this.waiting = false})
           },
         })
       )
