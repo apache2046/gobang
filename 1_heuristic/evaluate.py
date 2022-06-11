@@ -1,6 +1,6 @@
 from enum import Enum
 
-__all__ = ["evaluate"]
+__all__ = ["evaluate", "Pattern"]
 
 
 class Pattern(Enum):
@@ -66,7 +66,7 @@ for k in pattern_map:
     print(k, pattern_map[k])
 
 
-def evaluate(board, x, y, actor):
+def get4lines(board, x, y, actor):
     h, w = board.shape
     lines = []
 
@@ -119,13 +119,34 @@ def evaluate(board, x, y, actor):
             break
         line.append(board[y - i][x + i])
     lines.append(line)
+    return lines
 
+
+def be5(line, actor):
+    c = 0
+    for n in line:
+        if n == actor:
+            c += 1
+            if c == 5:
+                return True
+        else:
+            c = 0
+    return False
+
+
+def evaluate(board, x, y, actor):
+    lines = get4lines(board, x, y, actor)
+    sum = 0
     for l in lines:
+        if be5(l, actor):
+            print(l, Pattern.FIVE)
+            sum += Pattern.FIVE.value
+            continue
         nl = l.copy()
         while len(nl) > 6:
-            if nl[-1] == 0 and nl[-2] == 0:
+            if nl[-2:] == [0, 0]:
                 nl.pop()
-            elif nl[0] == 0 and nl[1] == 0:
+            elif nl[:2] == [0, 0]:
                 nl.pop(0)
             else:
                 break
@@ -141,6 +162,9 @@ def evaluate(board, x, y, actor):
 
         v = pattern_map.get(tuple(nl))
         print(l, nl, v)
+        if v is not None:
+            sum += v.value
+    return sum
 
 
 if __name__ == "__main__":
@@ -153,9 +177,11 @@ if __name__ == "__main__":
     board[1][3] = 1
     board[1][4] = 1
     board[1][5] = 1
+    # board[1][6] = 1
     board[1][7] = 1
     board[1][8] = 1
     # board[1][6] = -1
-    evaluate(board, 4, 1, 1)
-    print()
-    evaluate(board, 4, 0, 1)
+    v = evaluate(board, 4, 1, 1)
+    print("V:", v)
+    v = evaluate(board, 4, 0, 1)
+    print("V:", v)
