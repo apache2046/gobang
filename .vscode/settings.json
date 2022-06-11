@@ -1,0 +1,25 @@
+{
+  "[python]": {
+    "editor.tabSize": 4
+  },
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  // "python.formatting.autopep8Args": [
+  //   "--max-line-length=120",
+  //   "--select",
+  //   "E,W"
+  // ],
+  "python.linting.flake8Args": [
+    "--max-line-length=120",
+    "--ignore=E302,E265,W503,E741"
+  ],
+  "python.formatting.blackArgs": [
+    "--line-length",
+    "119"
+  ]
+}
