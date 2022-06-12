@@ -1,5 +1,5 @@
 from enum import Enum
-
+import numpy as np
 __all__ = ["evaluate_one", "evaluate_all", "evaluate_4dir_lines", "Pattern"]
 
 
@@ -192,7 +192,7 @@ def evaluate_lines(lines):
     while len(lines) > 0:
         line = lines.pop(0)
         line_l = len(line)
-        if line_l < 5:
+        if line_l < 5 or (line > 0).sum() == 0:
             continue
         found = False
         for pat in pattern_search_order:
@@ -213,21 +213,25 @@ def evaluate_lines(lines):
     return sum
 
 
-def evaluate_4dir_lines(board, actor, x, y):
+def evaluate_4dir_lines(board, x, y):
     h, w = board.shape
     nb = board.copy()
-    if actor == -1:
-        nb *= -1
 
-    v1 = evaluate_lines([nb[:, x]])  # |
-    v2 = evaluate_lines([nb[y]])  # -
-    v3 = evaluate_lines([nb.diagonal(x - y)])  # \
+    v11 = evaluate_lines([nb[:, x]])  # |
+    v12 = evaluate_lines([nb[y]])  # -
+    v13 = evaluate_lines([nb.diagonal(x - y)])  # \
     # print("G ", w, w - 1 - (x - y), np.fliplr(nb).diagonal(w - 1 - (x + y)))
     # print(nb)
     # print(np.fliplr(nb))
-    v4 = evaluate_lines([np.fliplr(nb).diagonal(w - 1 - (x + y))])  # /
+    v14 = evaluate_lines([np.fliplr(nb).diagonal(w - 1 - (x + y))])  # /
 
-    return v1, v2, v3, v4
+    nb *= -1
+    v21 = evaluate_lines([nb[:, x]])  # |
+    v22 = evaluate_lines([nb[y]])  # -
+    v23 = evaluate_lines([nb.diagonal(x - y)])  # \
+    v24 = evaluate_lines([np.fliplr(nb).diagonal(w - 1 - (x + y))])  # /
+
+    return [v11, v21], [v12, v22], [v13, v23], [v14, v24]
 
 
 def evaluate_all(board, board_score_v, board_score_h, board_score_lu2rb, board_score_lb2ru):
@@ -236,7 +240,6 @@ def evaluate_all(board, board_score_v, board_score_h, board_score_lu2rb, board_s
 
 
 if __name__ == "__main__":
-    import numpy as np
     import time
 
     board = np.zeros((15, 15), dtype=np.int32)
@@ -269,6 +272,8 @@ if __name__ == "__main__":
     #             board[i][j] = 0
     # print("time:", time.time() - stime)
 
-    print("V:", evaluate_4dir_lines(board, 1, 4, 1))
+    print("V:", evaluate_4dir_lines(board, 4, 1))
     # print("V:", evaluate_4dir_lines(board, 4, 0, 1))
     # print("V:", evaluate_4dir_lines(board, 14, 14, 1))
+    board *= -1
+    print("V:", evaluate_4dir_lines(board, 4, 1))

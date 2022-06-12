@@ -11,10 +11,10 @@ import evaluate as eva
 
 board_state = np.zeros((15, 15))
 search_point = set()
-board_score_v = np.zeros((2, 15), dtype=np.int32)  # 垂直| 方向,棋面评估
-board_score_h = np.zeros((2, 15), dtype=np.int32)  # 水平- 方向,棋面评估
-board_score_lu2rb = np.zeros((2, 15 * 2 - 9), dtype=np.int32)  # 左上到右下\ 的对角线方向,棋面评估
-board_score_lb2ru = np.zeros((2, 15 * 2 - 9), dtype=np.int32)  # 左下到右上/ 的对角线方向,棋面评估
+board_score_v = np.zeros((15, 2), dtype=np.int32)  # 垂直| 方向,棋面评估
+board_score_h = np.zeros((15, 2), dtype=np.int32)  # 水平- 方向,棋面评估
+board_score_lu2rb = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左上到右下\ 的对角线方向,棋面评估
+board_score_lb2ru = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左下到右上/ 的对角线方向,棋面评估
 
 
 def board_size(size):
@@ -26,10 +26,10 @@ def board_size(size):
 
     print("in play board_size", size, id(board_state))
     board_state = np.zeros((size, size), dtype=np.int32)
-    board_score_v = np.zeros((2, size), dtype=np.int32)
-    board_score_h = np.zeros((2, size), dtype=np.int32)
-    board_score_lu2rb = np.zeros((2, size * 2 - 9), dtype=np.int32)
-    board_score_lb2ru = np.zeros((2, size * 2 - 9), dtype=np.int32)
+    board_score_v = np.zeros((size, 2), dtype=np.int32)
+    board_score_h = np.zeros((size, 2), dtype=np.int32)
+    board_score_lu2rb = np.zeros((size * 2 - 1, 2), dtype=np.int32)
+    board_score_lb2ru = np.zeros((size * 2 - 1, 2), dtype=np.int32)
     print("in play board_size2", board_state.shape, id(board_state))
     return True
 
@@ -49,15 +49,20 @@ def clearboard():
 def play(actor, pos):
     print("in play play", actor, pos)
     x, y = pos
-
+    h, w = board_state.shape
     board_state[y][x] = actor
     update_search_point(board_state, (x, y), search_point)
+    v1, v2, v3, v4 = eva.evaluate_4dir_lines(board_state, x, y)
+    board_score_v[x] = v1
+    board_score_h[y] = v2
+    board_score_lu2rb[w - 1 + x - y] = v3
+    board_score_lb2ru[x + y] = v4
     return True
 
 
 def genmove(actor):
     print("in play genmove", board_state.shape)
-    if False:
+    if True:
         size = board_state.shape[0]
         time.sleep(2)
         while True:
