@@ -1,6 +1,8 @@
 import sys
 import os
 import time
+import copy
+from turtle import pos
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -57,21 +59,48 @@ def play(actor, pos):
     board_score_h[y] = v2
     board_score_lu2rb[w - 1 + x - y] = v3
     board_score_lb2ru[x + y] = v4
+
+    v_actor = [0, 0]
+    # print(type(board_score_v), board_score_v.shape)
+    for i in range(2):
+        v_actor[i] = (
+            board_score_v[:, i].sum()
+            + board_score_h[:, i].sum()
+            + board_score_lu2rb[:, i].sum()
+            + board_score_lb2ru[:, i].sum()
+        )
+    print("v_actor:", v_actor)
     return True
 
 
 def genmove(actor):
     print("in play genmove", board_state.shape)
-    if True:
+    if False:
         size = board_state.shape[0]
         time.sleep(2)
         while True:
             pos = np.random.randint(0, size, 2)
             if board_state[pos[1]][pos[0]] == 0:
+                play(actor, pos)
                 return [int(pos[0]), int(pos[1])]
     else:
-        pos, v = alpha_beta_search(board_state, search_point, actor, 0, 0, 4)
-        return pos
+        new_board_state = copy.deepcopy(board_state)
+        if actor == -1:
+            new_board_state *= -1
+        alpha, beta, bestmov = alpha_beta_search(
+            board_state,
+            board_score_v,
+            board_score_h,
+            board_score_lu2rb,
+            board_score_lb2ru,
+            search_point,
+            True,
+            -1e9,
+            1e9,
+            4,
+        )
+        play(actor, bestmov)
+        return bestmov
 
 
 def update_search_point(board, nextpos, sp):
@@ -82,19 +111,89 @@ def update_search_point(board, nextpos, sp):
         for j in range(max(0, x - 2), min(w, x + 3)):
             if board[i][j] == 0:
                 sp.add((j, i))
-    print(sp)
+    # print(sp)
 
-
-def alpha_beta_search(board, search_point, actor, alpha, beta, maxlevel):
+call_cnt = 0
+gtime = 0
+def alpha_beta_search(
+    board, board_score_v, board_score_h, board_score_lu2rb, board_score_lb2ru, search_point, ismax, alpha, beta, level
+):
+    global call_cnt
+    call_cnt +=1
+    if call_cnt % 10 == 0:
+        print(call_cnt)
+    bestmove = None
+    h, w = board.shape
     for next in search_point:
-        new_board = board.copy()
+        new_board = copy.deepcopy(board)
+        new_board_score_v = copy.deepcopy(board_score_v)
+        new_board_score_h = copy.deepcopy(board_score_h)
+        new_board_score_lu2rb = copy.deepcopy(board_score_lu2rb)
+        new_board_score_lb2ru = copy.deepcopy(board_score_lb2ru)
+
         x, y = next
-        new_board[y][x] = actor
+        new_board[y][x] = 1 if ismax else -1
         new_sp = search_point.copy()
         update_search_point(new_board, next, new_sp)
-        p, v = alpha_beta_search(board_state, search_point, -actor, 0, 0, maxlevel - 1)
+        stime = time.time()
+        v1, v2, v3, v4 = eva.evaluate_4dir_lines(new_board, x, y)
+        global gtime
+        gtime += time.time() - stime
+        print(gtime, time.ctime())
+        new_board_score_v[x] = v1
+        new_board_score_h[y] = v2
+        new_board_score_lu2rb[w - 1 + x - y] = v3
+        new_board_score_lb2ru[x + y] = v4
 
-    pass
+        v_actor = [0, 0]
+        if level == 1:
+            for i in range(2):
+                v_actor[i] = (
+                    board_score_v[:, i].sum()
+                    + board_score_h[:, i].sum()
+                    + board_score_lu2rb[:, i].sum()
+                    + board_score_lb2ru[:, i].sum()
+                )
+            v = v_actor[0] - v_actor[1]
+            if ismax:
+                if v > alpha:
+                    alpha = v
+                    bestmove = pos
+            else:
+                if v < beta:
+                    beta = v
+                    bestmove = pos
+        else:
+            c_alpha, c_beta, _ = alpha_beta_search(
+                board_state,
+                new_board_score_v,
+                new_board_score_h,
+                new_board_score_lu2rb,
+                new_board_score_lb2ru,
+                search_point,
+                not ismax,
+                alpha,
+                beta,
+                level - 1,
+            )
+            if ismax:
+                if c_beta > alpha:
+                    bestmove = next
+                alpha = max(alpha, c_beta)
+            else:
+                if c_alpha < beta:
+                    bestmove = next
+                beta = min(beta, c_alpha)
+
+            # pruning
+            if alpha > beta:
+                print("pruned..")
+                break
+
+    return alpha, beta, bestmove
 
 
-serv(8080, board_size, clearboard, play, genmove)
+# serv(8080, board_size, clearboard, play, genmove)
+board_size(15)
+play(1, [8,8])
+genmove(-1)

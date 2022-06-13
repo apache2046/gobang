@@ -188,7 +188,7 @@ def evaluate_one(board, x, y, actor):
 
 def evaluate_lines(lines):
     sum = 0
-    print("evaluate_lines:", lines[0])
+    # print("evaluate_lines:", lines[0])
     while len(lines) > 0:
         line = lines.pop(0)
         line_l = len(line)
@@ -199,7 +199,7 @@ def evaluate_lines(lines):
             pat_l = len(pat)
             for i in range(0, line_l - pat_l + 1):
                 if np.array_equal(line[i : i + pat_l], pat):
-                    print("Got P:", line[i : i + pat_l], pat, pattern_map[pat])
+                    # print("Got P:", line[i : i + pat_l], pat, pattern_map[pat])
                     sum += pattern_map[pat].value
                     if i > 0:
                         lines.append(line[:i])
