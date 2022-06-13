@@ -98,8 +98,21 @@ def genmove(actor):
             True,
             -1e9,
             1e9,
-            4,
+            1,
         )
+        if alpha < eva.Pattern.FOUR.value:
+            alpha, beta, bestmov = alpha_beta_search(
+                board_state,
+                board_score_v,
+                board_score_h,
+                board_score_lu2rb,
+                board_score_lb2ru,
+                search_point,
+                True,
+                -1e9,
+                1e9,
+                4,
+            )
         print("end genmove", alpha, beta, bestmov, search_point)
         play(actor, bestmov)
         return bestmov
@@ -150,14 +163,23 @@ def alpha_beta_search(
         new_board_score_lb2ru[x + y] = v4
 
         v_actor = [0, 0]
+        for i in range(2):
+            v_actor[i] = (
+                board_score_v[:, i].sum()
+                + board_score_h[:, i].sum()
+                + board_score_lu2rb[:, i].sum()
+                + board_score_lb2ru[:, i].sum()
+            )
+        # if ismax:
+        #     if v_actor[0] > 100000:
+        #         alpha = 1000000
+        #         break
+        # else:
+        #     if v_actor[1] > 100000:
+        #         beta = 1000000
+        #         break
+
         if level == 1:
-            for i in range(2):
-                v_actor[i] = (
-                    board_score_v[:, i].sum()
-                    + board_score_h[:, i].sum()
-                    + board_score_lu2rb[:, i].sum()
-                    + board_score_lb2ru[:, i].sum()
-                )
             v = v_actor[0] - v_actor[1]
             if ismax:
                 if v > alpha:
@@ -190,9 +212,10 @@ def alpha_beta_search(
                 if c_alpha < beta:
                     bestmove = next_pos
                 beta = min(beta, c_alpha)
+                print(level, alpha, beta, c_alpha)
 
             # pruning
-            if alpha > beta:
+            if alpha >= beta:
                 print("pruned..")
                 break
     # print("end ab", level, alpha, beta, bestmove)
