@@ -317,3 +317,20 @@ if __name__ == "__main__":
     # print("V:", evaluate_4dir_lines(board, 14, 14, 1))
     board *= -1
     print("V:", evaluate_4dir_lines(board, 4, 1))
+
+
+
+    board = np.zeros((9, 9), dtype=np.int32)
+
+    board[6][3] = 1
+    board[5][4] = 1
+    board[4][4] = 1
+    board[4][5] = 1
+
+    board[6][4] = -1
+    board[5][5] = -1
+    board[4][6] = -1
+    board[3][7] = -1
+    print("1V:", evaluate_4dir_lines(board, 3, 7))
+    board *= -1
+    print("1V:", evaluate_4dir_lines(board, 3, 7))

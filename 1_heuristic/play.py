@@ -2,7 +2,6 @@ import sys
 import os
 import time
 import copy
-from turtle import pos
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -89,30 +88,31 @@ def genmove(actor):
         if actor == -1:
             new_board_state *= -1
         alpha, beta, bestmov = alpha_beta_search(
-            board_state,
+            new_board_state,
             board_score_v,
             board_score_h,
             board_score_lu2rb,
             board_score_lb2ru,
             search_point,
             True,
-            -1e9,
-            1e9,
-            1,
+            -1e10,
+            1e10,
+            5,
         )
-        if alpha < eva.Pattern.FOUR.value:
-            alpha, beta, bestmov = alpha_beta_search(
-                board_state,
-                board_score_v,
-                board_score_h,
-                board_score_lu2rb,
-                board_score_lb2ru,
-                search_point,
-                True,
-                -1e9,
-                1e9,
-                4,
-            )
+        # print('cs', alpha, beta)
+        # if alpha < eva.Pattern.FOUR.value:
+        #     alpha, beta, bestmov = alpha_beta_search(
+        #         new_board_state,
+        #         board_score_v,
+        #         board_score_h,
+        #         board_score_lu2rb,
+        #         board_score_lb2ru,
+        #         search_point,
+        #         True,
+        #         -1e10,
+        #         1e10,
+        #         4,
+        #     )
         print("end genmove", alpha, beta, bestmov, search_point)
         play(actor, bestmov)
         return bestmov
@@ -130,17 +130,21 @@ def update_search_point(board, nextpos, sp):
                 sp.add((j, i))
     # print("sp", sp)
 
+
 call_cnt = 0
 gtime = 0
+
+
 def alpha_beta_search(
     board, board_score_v, board_score_h, board_score_lu2rb, board_score_lb2ru, search_point, ismax, alpha, beta, level
 ):
     global call_cnt
-    call_cnt +=1
+    call_cnt += 1
     # if call_cnt % 10 == 0:
     #     print(call_cnt)
     bestmove = None
     h, w = board.shape
+    search_q = []
     for next_pos in search_point:
         new_board = copy.deepcopy(board)
         new_board_score_v = copy.deepcopy(board_score_v)
@@ -165,22 +169,28 @@ def alpha_beta_search(
         v_actor = [0, 0]
         for i in range(2):
             v_actor[i] = (
-                board_score_v[:, i].sum()
-                + board_score_h[:, i].sum()
-                + board_score_lu2rb[:, i].sum()
-                + board_score_lb2ru[:, i].sum()
+                new_board_score_v[:, i].sum()
+                + new_board_score_h[:, i].sum()
+                + new_board_score_lu2rb[:, i].sum()
+                + new_board_score_lb2ru[:, i].sum()
             )
-        # if ismax:
-        #     if v_actor[0] > 100000:
-        #         alpha = 1000000
-        #         break
-        # else:
-        #     if v_actor[1] > 100000:
-        #         beta = 1000000
-        #         break
+        # 出现 >= 活四情况，判定为叶子结点，不需要继续深入了
+        if ismax:
+            if v_actor[0] > 100000:
+                alpha = 1000000
+                bestmove = next_pos
+                break
+        else:
+            if v_actor[1] > 100000:
+                beta = -1000000
+                break
+
+        # if v_actor[0] > eva.Pattern.FOUR.value:
+        #     break
+        v = v_actor[0] - v_actor[1]
 
         if level == 1:
-            v = v_actor[0] - v_actor[1]
+            # print(next_pos, v_actor)
             if ismax:
                 if v > alpha:
                     alpha = v
@@ -190,13 +200,37 @@ def alpha_beta_search(
                     beta = v
                     bestmove = next_pos
         else:
+            search_q.append(
+                [
+                    v,
+                    new_board,
+                    new_board_score_v,
+                    new_board_score_h,
+                    new_board_score_lu2rb,
+                    new_board_score_lb2ru,
+                    new_sp,
+                    next_pos,
+                ]
+            )
+    if level > 1:
+        search_q.sort(key=lambda x: x[0], reverse=True)
+        for (
+            _,
+            nnew_board,
+            nnew_board_score_v,
+            nnew_board_score_h,
+            nnew_board_score_lu2rb,
+            nnew_board_score_lb2ru,
+            nnew_sp,
+            nnext_pos,
+        ) in search_q:
             c_alpha, c_beta, _ = alpha_beta_search(
-                new_board,
-                new_board_score_v,
-                new_board_score_h,
-                new_board_score_lu2rb,
-                new_board_score_lb2ru,
-                new_sp,
+                nnew_board,
+                nnew_board_score_v,
+                nnew_board_score_h,
+                nnew_board_score_lu2rb,
+                nnew_board_score_lb2ru,
+                nnew_sp,
                 not ismax,
                 alpha,
                 beta,
@@ -206,17 +240,17 @@ def alpha_beta_search(
                 # if level == 3:
                 #     print(alpha, c_alpha, c_beta)
                 if c_beta > alpha:
-                    bestmove = next_pos
+                    bestmove = nnext_pos
                 alpha = max(alpha, c_beta)
             else:
                 if c_alpha < beta:
-                    bestmove = next_pos
+                    bestmove = nnext_pos
                 beta = min(beta, c_alpha)
-                print(level, alpha, beta, c_alpha)
+                # print(level, alpha, beta, c_alpha)
 
             # pruning
             if alpha >= beta:
-                print("pruned..")
+                # print("pruned..")
                 break
     # print("end ab", level, alpha, beta, bestmove)
     return alpha, beta, bestmove
