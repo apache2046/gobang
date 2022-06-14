@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import copy
+import multiprocessing as mp
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +76,7 @@ def play(actor, pos):
 
 def genmove(actor):
     print("in genmove", actor, board_state.shape)
+    return mp_genmove(actor)
     if False:
         size = board_state.shape[0]
         time.sleep(2)
@@ -118,6 +120,38 @@ def genmove(actor):
         return bestmov
 
 
+if __name__ == "__main__":
+    mp_pool = mp.Pool(mp.cpu_count())
+
+def mp_genmove(actor):
+    new_board_state = copy.deepcopy(board_state)
+    if actor == -1:
+        new_board_state *= -1
+    params = []
+    for s in search_point:
+        params.append(
+            (
+                new_board_state,
+                board_score_v,
+                board_score_h,
+                board_score_lu2rb,
+                board_score_lb2ru,
+                search_point,
+                True,
+                -1e10,
+                1e10,
+                5,
+                s,
+            )
+        )
+    result = mp_pool.starmap(alpha_beta_search, params)
+    result.sort(key=lambda x: x[0], reverse=True)
+    alpha, beta, bestmov = result[0]
+    print("end genmove", alpha, beta, bestmov, search_point)
+    play(actor, bestmov)
+    return bestmov
+
+
 def update_search_point(board, nextpos, sp):
     x, y = nextpos
     sp.discard((x, y))
@@ -136,7 +170,17 @@ gtime = 0
 
 
 def alpha_beta_search(
-    board, board_score_v, board_score_h, board_score_lu2rb, board_score_lb2ru, search_point, ismax, alpha, beta, level
+    board,
+    board_score_v,
+    board_score_h,
+    board_score_lu2rb,
+    board_score_lb2ru,
+    search_point,
+    ismax,
+    alpha,
+    beta,
+    level,
+    first_point=None,
 ):
     global call_cnt
     call_cnt += 1
@@ -145,7 +189,11 @@ def alpha_beta_search(
     bestmove = None
     h, w = board.shape
     search_q = []
-    for next_pos in search_point:
+    if first_point is not None:
+        search = [first_point]
+    else:
+        search = search_point
+    for next_pos in search:
         new_board = copy.deepcopy(board)
         new_board_score_v = copy.deepcopy(board_score_v)
         new_board_score_h = copy.deepcopy(board_score_h)
@@ -200,18 +248,20 @@ def alpha_beta_search(
                     beta = v
                     bestmove = next_pos
         else:
-            search_q.append(
-                [
-                    v,
-                    new_board,
-                    new_board_score_v,
-                    new_board_score_h,
-                    new_board_score_lu2rb,
-                    new_board_score_lb2ru,
-                    new_sp,
-                    next_pos,
-                ]
-            )
+            # if len(search_q) == 0 or level >=4 or v_actor[0] > eva.Pattern.THREE.value or v_actor[1] > eva.Pattern.THREE.value :
+            if True:
+                search_q.append(
+                    [
+                        v,
+                        new_board,
+                        new_board_score_v,
+                        new_board_score_h,
+                        new_board_score_lu2rb,
+                        new_board_score_lb2ru,
+                        new_sp,
+                        next_pos,
+                    ]
+                )
     if level > 1:
         search_q.sort(key=lambda x: x[0], reverse=True)
         for (
@@ -250,13 +300,16 @@ def alpha_beta_search(
 
             # pruning
             if alpha >= beta:
-                # print("pruned..")
+                # if alpha > beta:
+                #     print("pruned..", alpha, beta)
                 break
     # print("end ab", level, alpha, beta, bestmove)
     return alpha, beta, bestmove
 
 
-serv(8080, board_size, clearboard, play, genmove)
-# board_size(15)
-# play(1, [8,8])
-# genmove(-1)
+if __name__ == "__main__":
+    serv(8080, board_size, clearboard, play, genmove)
+    # board_size(15)
+    # play(1, [8,8])
+    # genmove(-1)
+    mp_pool = mp.Pool(mp.cpu_count())
