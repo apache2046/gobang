@@ -54,7 +54,7 @@ def play(actor, pos):
     h, w = board_state.shape
     board_state[y][x] = actor
     update_search_point(board_state, (x, y), search_point)
-    print("sp", search_point)
+    # print("sp", search_point)
     v1, v2, v3, v4 = eva.evaluate_4dir_lines(board_state, x, y)
     board_score_v[x] = v1
     board_score_h[y] = v2
@@ -99,7 +99,7 @@ def genmove(actor):
             True,
             -1e10,
             1e10,
-            4,
+            6,
         )
         # print('cs', alpha, beta)
         # if alpha < eva.Pattern.FOUR.value:
@@ -115,14 +115,14 @@ def genmove(actor):
         #         1e10,
         #         4,
         #     )
-        print("end genmove", alpha, beta, bestmov, search_point)
-        play(actor, bestmov)
-        return bestmov
+        print("##end genmove", alpha, beta, bestmov, len(search_point))
+        play(actor, bestmov[0][:2])
+        return bestmov[0][:2]
 
 
-if __name__ == "__main__":
-    mp.set_start_method("spawn")
-    mp_pool = mp.Pool(mp.cpu_count())
+# if __name__ == "__main__":
+#     mp.set_start_method("spawn")
+#     mp_pool = mp.Pool(mp.cpu_count())
 
 
 def mp_genmove(actor):
@@ -155,14 +155,17 @@ def mp_genmove(actor):
     return bestmov
 
 
-def update_search_point(board, nextpos, sp):
+def update_search_point(board, nextpos, sp, wide=False):
     x, y = nextpos
     sp.discard((x, y))
     h, w = board.shape
-    for i in range(max(0, y - 2), min(h, y + 3)):
-        for j in range(max(0, x - 2), min(w, x + 3)):
-    # for i in range(max(0, y - 1), min(h, y + 2)):
-    #     for j in range(max(0, x - 1), min(w, x + 2)):
+    if wide:
+        low, up = -2, 3
+    else:
+        low, up = -1, 2
+    # low, up = -1, 2
+    for i in range(max(0, y + low), min(h, y + up)):
+        for j in range(max(0, x + low), min(w, x + up)):
             if board[i][j] == 0:
                 sp.add((j, i))
     # print("sp", sp)
@@ -172,7 +175,7 @@ call_cnt = 0
 gtime = 0
 
 np.random.seed(1234)
-zobrist = np.random.randint(1e5, 1e10, (15, 15, 3))
+zobrist = np.random.randint(1e8, 1e14, (15, 15, 3))
 abs_cache = {}
 
 
@@ -189,12 +192,16 @@ def alpha_beta_search(
     level,
     first_point=None,
 ):
-    cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
+    # cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
+    # cached = abs_cache.get("".join([str(x) for x in (board + 1).flatten().tolist()]))
+    cache_code = "".join([str(x) for x in (board + 1).flatten().tolist()]) + str(level)
+    # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
+    cached = abs_cache.get(cache_code)
     if cached is not None:
         alpha, beta, bestmove = cached
         return alpha, beta, bestmove
-    global call_cnt
-    call_cnt += 1
+    # global call_cnt
+    # call_cnt += 1
     # if call_cnt % 10 == 0:
     #     print(call_cnt)
     bestmove = None
@@ -204,6 +211,7 @@ def alpha_beta_search(
         search = [first_point]
     else:
         search = search_point
+    # print("search",len(search), search)
     for next_pos in search:
         new_board = copy.deepcopy(board)
         new_board_score_v = copy.deepcopy(board_score_v)
@@ -211,15 +219,13 @@ def alpha_beta_search(
         new_board_score_lu2rb = copy.deepcopy(board_score_lu2rb)
         new_board_score_lb2ru = copy.deepcopy(board_score_lb2ru)
 
+        if bestmove is None:
+            bestmove = [[*next_pos, ismax]]
         x, y = next_pos
         new_board[y][x] = 1 if ismax else -1
-        new_sp = search_point.copy()
-        update_search_point(new_board, next_pos, new_sp)
-        stime = time.time()
+        new_sp = copy.deepcopy(search_point)
+        update_search_point(new_board, next_pos, new_sp, level >= 5)
         v1, v2, v3, v4 = eva.evaluate_4dir_lines(new_board, x, y)
-        # global gtime
-        # gtime += time.time() - stime
-        # print(gtime, time.ctime())
         new_board_score_v[x] = v1
         new_board_score_h[y] = v2
         new_board_score_lu2rb[w - 1 + x - y] = v3
@@ -241,7 +247,14 @@ def alpha_beta_search(
                 and v_actor[1] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 alpha = 1000000 + level
-                bestmove = next_pos
+                bestmove = [[*next_pos, ismax]]
+                level = 0
+                break
+
+            if v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
+                alpha = -1000000 - level
+                bestmove = [[*next_pos, ismax]]
+                level = 0
                 break
         else:
             if (
@@ -250,6 +263,14 @@ def alpha_beta_search(
                 and v_actor[0] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 beta = -1000000 - level
+                bestmove = [[*next_pos, ismax]]
+                level = 0
+                break
+
+            if v_actor[0] > eva.Pattern.BLOCKED_FOUR.value :
+                beta = 1000000 + level
+                bestmove = [[*next_pos, ismax]]
+                level = 0
                 break
 
         # if v_actor[0] > eva.Pattern.FOUR.value:
@@ -258,21 +279,22 @@ def alpha_beta_search(
 
         if level == 1:
             # print(next_pos, v_actor)
+            # bestmove = [[*next_pos, ismax]]
             if ismax:
                 if v > alpha:
                     alpha = v
-                    bestmove = next_pos
+                    bestmove = [[*next_pos, ismax]]
             else:
                 if v < beta:
                     beta = v
-                    bestmove = next_pos
+                    bestmove = [[*next_pos, ismax]]
         else:
             # len(search_q) == 0 or
             # if len(search_q) == 0 or level >=3 or v_actor[0] > eva.Pattern.BLOCKED_FOUR.value or v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
             if True:
                 search_q.append(
                     [
-                        v_actor,
+                        v,
                         new_board,
                         new_board_score_v,
                         new_board_score_h,
@@ -283,7 +305,10 @@ def alpha_beta_search(
                     ]
                 )
     if level > 1:
-        search_q.sort(key=lambda x: max(x[0]), reverse=True)
+        if ismax:
+            search_q.sort(key=lambda x: x[0], reverse=True)
+        else:
+            search_q.sort(key=lambda x: x[0], reverse=False)
         for (
             _,
             nnew_board,
@@ -294,7 +319,7 @@ def alpha_beta_search(
             nnew_sp,
             nnext_pos,
         ) in search_q:
-            c_alpha, c_beta, _ = alpha_beta_search(
+            c_alpha, c_beta, c_bestmove = alpha_beta_search(
                 nnew_board,
                 nnew_board_score_v,
                 nnew_board_score_h,
@@ -310,11 +335,13 @@ def alpha_beta_search(
                 # if level == 3:
                 #     print(alpha, c_alpha, c_beta)
                 if c_beta > alpha:
-                    bestmove = nnext_pos
+                    c_bestmove.insert(0, [*nnext_pos, ismax])
+                    bestmove = c_bestmove
                 alpha = max(alpha, c_beta)
             else:
                 if c_alpha < beta:
-                    bestmove = nnext_pos
+                    c_bestmove.insert(0, [*nnext_pos, ismax])
+                    bestmove = c_bestmove
                 beta = min(beta, c_alpha)
                 # print(level, alpha, beta, c_alpha)
 
@@ -323,8 +350,10 @@ def alpha_beta_search(
                 # if alpha > beta:
                 #     print("pruned..", alpha, beta)
                 break
-    # print("end ab", level, alpha, beta, bestmove)
-    abs_cache[np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum()] = (alpha, beta, bestmove)
+
+    # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
+    abs_cache[cache_code] = (alpha, beta, bestmove)
+
     return alpha, beta, bestmove
 
 
