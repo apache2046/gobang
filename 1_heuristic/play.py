@@ -121,6 +121,7 @@ def genmove(actor):
 
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn')
     mp_pool = mp.Pool(mp.cpu_count())
 
 def mp_genmove(actor):
@@ -147,7 +148,7 @@ def mp_genmove(actor):
     result = mp_pool.starmap(alpha_beta_search, params)
     result.sort(key=lambda x: x[0], reverse=True)
     alpha, beta, bestmov = result[0]
-    print("end genmove", alpha, beta, bestmov, search_point)
+    print("##end genmove", alpha, beta, bestmov, search_point)
     play(actor, bestmov)
     return bestmov
 
@@ -312,4 +313,3 @@ if __name__ == "__main__":
     # board_size(15)
     # play(1, [8,8])
     # genmove(-1)
-    mp_pool = mp.Pool(mp.cpu_count())
