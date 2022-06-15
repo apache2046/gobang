@@ -76,7 +76,7 @@ def play(actor, pos):
 
 def genmove(actor):
     print("in genmove", actor, board_state.shape)
-    return mp_genmove(actor)
+    # return mp_genmove(actor)
     if False:
         size = board_state.shape[0]
         time.sleep(2)
@@ -99,7 +99,7 @@ def genmove(actor):
             True,
             -1e10,
             1e10,
-            5,
+            4,
         )
         # print('cs', alpha, beta)
         # if alpha < eva.Pattern.FOUR.value:
@@ -159,10 +159,10 @@ def update_search_point(board, nextpos, sp):
     x, y = nextpos
     sp.discard((x, y))
     h, w = board.shape
-    # for i in range(max(0, y - 2), min(h, y + 3)):
-    #     for j in range(max(0, x - 2), min(w, x + 3)):
-    for i in range(max(0, y - 1), min(h, y + 2)):
-        for j in range(max(0, x - 1), min(w, x + 2)):
+    for i in range(max(0, y - 2), min(h, y + 3)):
+        for j in range(max(0, x - 2), min(w, x + 3)):
+    # for i in range(max(0, y - 1), min(h, y + 2)):
+    #     for j in range(max(0, x - 1), min(w, x + 2)):
             if board[i][j] == 0:
                 sp.add((j, i))
     # print("sp", sp)
@@ -170,6 +170,10 @@ def update_search_point(board, nextpos, sp):
 
 call_cnt = 0
 gtime = 0
+
+np.random.seed(1234)
+zobrist = np.random.randint(1e5, 1e10, (15, 15, 3))
+abs_cache = {}
 
 
 def alpha_beta_search(
@@ -185,6 +189,10 @@ def alpha_beta_search(
     level,
     first_point=None,
 ):
+    cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
+    if cached is not None:
+        alpha, beta, bestmove = cached
+        return alpha, beta, bestmove
     global call_cnt
     call_cnt += 1
     # if call_cnt % 10 == 0:
@@ -259,7 +267,8 @@ def alpha_beta_search(
                     beta = v
                     bestmove = next_pos
         else:
-            # if len(search_q) == 0 or level >=4 or v_actor[0] > eva.Pattern.THREE.value or v_actor[1] > eva.Pattern.THREE.value :
+            # len(search_q) == 0 or
+            # if len(search_q) == 0 or level >=3 or v_actor[0] > eva.Pattern.BLOCKED_FOUR.value or v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
             if True:
                 search_q.append(
                     [
@@ -315,6 +324,7 @@ def alpha_beta_search(
                 #     print("pruned..", alpha, beta)
                 break
     # print("end ab", level, alpha, beta, bestmove)
+    abs_cache[np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum()] = (alpha, beta, bestmove)
     return alpha, beta, bestmove
 
 
