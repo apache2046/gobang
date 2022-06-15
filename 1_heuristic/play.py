@@ -121,8 +121,9 @@ def genmove(actor):
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
+    mp.set_start_method("spawn")
     mp_pool = mp.Pool(mp.cpu_count())
+
 
 def mp_genmove(actor):
     new_board_state = copy.deepcopy(board_state)
@@ -146,9 +147,10 @@ def mp_genmove(actor):
             )
         )
     result = mp_pool.starmap(alpha_beta_search, params)
+    debug = [x for x in result if x[0] >= 1000000]
     result.sort(key=lambda x: x[0], reverse=True)
     alpha, beta, bestmov = result[0]
-    print("##end genmove", alpha, beta, bestmov, search_point)
+    print("##end genmove", alpha, beta, bestmov, search_point, debug)
     play(actor, bestmov)
     return bestmov
 
@@ -223,15 +225,23 @@ def alpha_beta_search(
                 + new_board_score_lu2rb[:, i].sum()
                 + new_board_score_lb2ru[:, i].sum()
             )
-        # 出现 >= 活四情况，判定为叶子结点，不需要继续深入了
+        # 无论当前level如何，若出现 活四、连五 棋形，判定为叶子结点，不需要继续深入了
         if ismax:
-            if v_actor[0] > 100000:
-                alpha = 1000000
+            if (
+                v_actor[0] > eva.Pattern.FIVE.value
+                or v_actor[0] > eva.Pattern.FOUR.value
+                and v_actor[1] < eva.Pattern.BLOCKED_FOUR.value
+            ):
+                alpha = 1000000 + level
                 bestmove = next_pos
                 break
         else:
-            if v_actor[1] > 100000:
-                beta = -1000000
+            if (
+                v_actor[1] > eva.Pattern.FIVE.value
+                or v_actor[1] > eva.Pattern.FOUR.value
+                and v_actor[0] < eva.Pattern.BLOCKED_FOUR.value
+            ):
+                beta = -1000000 - level
                 break
 
         # if v_actor[0] > eva.Pattern.FOUR.value:
@@ -253,7 +263,7 @@ def alpha_beta_search(
             if True:
                 search_q.append(
                     [
-                        v,
+                        v_actor,
                         new_board,
                         new_board_score_v,
                         new_board_score_h,
@@ -264,7 +274,7 @@ def alpha_beta_search(
                     ]
                 )
     if level > 1:
-        search_q.sort(key=lambda x: x[0], reverse=True)
+        search_q.sort(key=lambda x: max(x[0]), reverse=True)
         for (
             _,
             nnew_board,
