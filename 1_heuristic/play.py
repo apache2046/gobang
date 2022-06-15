@@ -17,7 +17,7 @@ board_score_v = np.zeros((15, 2), dtype=np.int32)  # 垂直| 方向,棋面评估
 board_score_h = np.zeros((15, 2), dtype=np.int32)  # 水平- 方向,棋面评估
 board_score_lu2rb = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左上到右下\ 的对角线方向,棋面评估
 board_score_lb2ru = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左下到右上/ 的对角线方向,棋面评估
-
+board_history = []
 
 def board_size(size):
     global board_state
@@ -44,18 +44,20 @@ def clearboard():
     board_score_lu2rb.fill(0)
     board_score_lb2ru.fill(0)
     search_point.clear()
+    board_history.clear()
     print("play clearboard2")
     return True
 
 
 def play(actor, pos):
     print("in play play", actor, pos)
+    board_history.append([*pos, actor])
     x, y = pos
     h, w = board_state.shape
     board_state[y][x] = actor
     update_search_point(board_state, (x, y), search_point)
     # print("sp", search_point)
-    v1, v2, v3, v4 = eva.evaluate_4dir_lines(board_state, x, y)
+    v1, v2, v3, v4 = eva.evaluate_4dir_lines(board_state * -1, x, y)
     board_score_v[x] = v1
     board_score_h[y] = v2
     board_score_lu2rb[w - 1 + x - y] = v3
@@ -117,6 +119,8 @@ def genmove(actor):
         #     )
         print("##end genmove", alpha, beta, bestmov, len(search_point))
         play(actor, bestmov[0][:2])
+        print(board_history)
+        print(board_state, "\n")
         return bestmov[0][:2]
 
 
@@ -152,6 +156,7 @@ def mp_genmove(actor):
     alpha, beta, bestmov = result[0]
     print("##end genmove", alpha, beta, bestmov, search_point, debug)
     play(actor, bestmov)
+    # print(board_state, "\n")
     return bestmov
 
 
@@ -247,15 +252,16 @@ def alpha_beta_search(
                 and v_actor[1] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 alpha = 1000000 + level
-                bestmove = [[*next_pos, ismax]]
+                bestmove = [[*next_pos, ismax, v_actor]]
                 level = 0
                 break
 
             if v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
-                alpha = -1000000 - level
-                bestmove = [[*next_pos, ismax]]
-                level = 0
-                break
+                continue
+            #     alpha = -1000000 - level
+            #     bestmove = [[*next_pos, ismax, v_actor]]
+            #     level = 0
+            #     break
         else:
             if (
                 v_actor[1] > eva.Pattern.FIVE.value
@@ -263,15 +269,16 @@ def alpha_beta_search(
                 and v_actor[0] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 beta = -1000000 - level
-                bestmove = [[*next_pos, ismax]]
+                bestmove = [[*next_pos, ismax, v_actor]]
                 level = 0
                 break
 
             if v_actor[0] > eva.Pattern.BLOCKED_FOUR.value :
-                beta = 1000000 + level
-                bestmove = [[*next_pos, ismax]]
-                level = 0
-                break
+                continue
+            #     beta = 1000000 + level
+            #     bestmove = [[*next_pos, ismax, v_actor]]
+            #     level = 0
+            #     break
 
         # if v_actor[0] > eva.Pattern.FOUR.value:
         #     break
