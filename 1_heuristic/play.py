@@ -237,6 +237,10 @@ def alpha_beta_search(
         new_sp = copy.deepcopy(search_point)
         update_search_point(new_board, next_pos, new_sp, level >= 5)
         v1, v2, v3, v4 = eva.evaluate_4dir_lines(new_board, x, y)
+        old_v1 = new_board_score_v[x]
+        old_v2 = new_board_score_h[y]
+        old_v3 = new_board_score_lu2rb[w - 1 + x - y]
+        old_v4 = new_board_score_lb2ru[x + y]
         new_board_score_v[x] = v1
         new_board_score_h[y] = v2
         new_board_score_lu2rb[w - 1 + x - y] = v3
@@ -250,11 +254,25 @@ def alpha_beta_search(
                 + new_board_score_lu2rb[:, i].sum()
                 + new_board_score_lb2ru[:, i].sum()
             )
+        v = v_actor[0] - v_actor[1]
+
         # 无论当前level如何，若出现 活四、连五 棋形，判定为叶子结点，不需要继续深入了
+        # 当前动作若消除了对方的活三、冲四，也是叶子结点
         if ismax:
             if (
-                v_actor[0] > eva.Pattern.FIVE.value
-                or v_actor[0] > eva.Pattern.FOUR.value
+                old_v1[1] - v1[1] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v2[1] - v2[1] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v3[1] - v3[1] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v4[1] - v4[1] >= eva.Pattern.BLOCKED_FOUR.value
+            ):
+                alpha = v
+                bestmove = [[*next_pos, ismax, v_actor]]
+                level = 0
+                break
+
+            if (
+                v_actor[0] >= eva.Pattern.FIVE.value
+                or v_actor[0] >= eva.Pattern.FOUR.value
                 and v_actor[1] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 alpha = 1000000 + level
@@ -262,7 +280,7 @@ def alpha_beta_search(
                 level = 0
                 break
 
-            if v_actor[1] > eva.Pattern.BLOCKED_FOUR.value:
+            if v_actor[1] >= eva.Pattern.THREE.value:
                 continue
             #     alpha = -1000000 - level
             #     bestmove = [[*next_pos, ismax, v_actor]]
@@ -270,8 +288,19 @@ def alpha_beta_search(
             #     break
         else:
             if (
-                v_actor[1] > eva.Pattern.FIVE.value
-                or v_actor[1] > eva.Pattern.FOUR.value
+                old_v1[0] - v1[0] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v2[0] - v2[0] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v3[0] - v3[0] >= eva.Pattern.BLOCKED_FOUR.value
+                or old_v4[0] - v4[0] >= eva.Pattern.BLOCKED_FOUR.value
+            ):
+                beta = v
+                bestmove = [[*next_pos, ismax, v_actor]]
+                level = 0
+                break
+
+            if (
+                v_actor[1] >= eva.Pattern.FIVE.value
+                or v_actor[1] >= eva.Pattern.FOUR.value
                 and v_actor[0] < eva.Pattern.BLOCKED_FOUR.value
             ):
                 beta = -1000000 - level
@@ -279,7 +308,7 @@ def alpha_beta_search(
                 level = 0
                 break
 
-            if v_actor[0] > eva.Pattern.BLOCKED_FOUR.value:
+            if v_actor[0] >= eva.Pattern.THREE.value:
                 continue
             #     beta = 1000000 + level
             #     bestmove = [[*next_pos, ismax, v_actor]]
@@ -288,7 +317,6 @@ def alpha_beta_search(
 
         # if v_actor[0] > eva.Pattern.FOUR.value:
         #     break
-        v = v_actor[0] - v_actor[1]
 
         if level == 1:
             # print(next_pos, v_actor)
