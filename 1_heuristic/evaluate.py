@@ -7,7 +7,7 @@ __all__ = ["evaluate_one", "evaluate_all", "evaluate_4dir_lines", "Pattern"]
 class Pattern(Enum):
     ONE = 10
     TWO = 100
-    THREE = 1000
+    THREE = 10000
     FOUR = 100000
     FIVE = 10000000
     BLOCKED_ONE = 1
