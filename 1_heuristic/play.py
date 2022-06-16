@@ -19,6 +19,7 @@ board_score_lu2rb = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左上到右下
 board_score_lb2ru = np.zeros((15 * 2 - 1, 2), dtype=np.int32)  # 左下到右上/ 的对角线方向,棋面评估
 board_history = []
 
+
 def board_size(size):
     global board_state
     global board_score_v
@@ -26,18 +27,18 @@ def board_size(size):
     global board_score_lu2rb
     global board_score_lb2ru
 
-    print("in play board_size", size, id(board_state))
+    print("in board_size", size, id(board_state))
     board_state = np.zeros((size, size), dtype=np.int32)
     board_score_v = np.zeros((size, 2), dtype=np.int32)
     board_score_h = np.zeros((size, 2), dtype=np.int32)
     board_score_lu2rb = np.zeros((size * 2 - 1, 2), dtype=np.int32)
     board_score_lb2ru = np.zeros((size * 2 - 1, 2), dtype=np.int32)
-    print("in play board_size2", board_state.shape, id(board_state))
+    print("in board_size2", board_state.shape, id(board_state))
     return True
 
 
 def clearboard():
-    print("in play clearboard1", board_state.shape, id(board_state))
+    print("in clearboard1", board_state.shape, id(board_state))
     board_state.fill(0)
     board_score_v.fill(0)
     board_score_h.fill(0)
@@ -45,12 +46,12 @@ def clearboard():
     board_score_lb2ru.fill(0)
     search_point.clear()
     board_history.clear()
-    print("play clearboard2")
+    print("in clearboard2")
     return True
 
 
 def play(actor, pos):
-    print("in play play", actor, pos)
+    print("in play", actor, pos)
     board_history.append([*pos, actor])
     x, y = pos
     h, w = board_state.shape
@@ -78,7 +79,7 @@ def play(actor, pos):
 
 def genmove(actor):
     print("in genmove", actor, board_state.shape)
-    # return mp_genmove(actor)
+    return mp_genmove(actor)
     if False:
         size = board_state.shape[0]
         time.sleep(2)
@@ -124,9 +125,10 @@ def genmove(actor):
         return bestmov[0][:2]
 
 
-# if __name__ == "__main__":
-#     mp.set_start_method("spawn")
-#     mp_pool = mp.Pool(mp.cpu_count())
+if __name__ == "__main__":
+    mp.set_start_method("spawn")
+    mp_pool = mp.Pool(mp.cpu_count() // 2)
+    # mp_pool = mp.Pool(1)
 
 
 def mp_genmove(actor):
@@ -146,18 +148,20 @@ def mp_genmove(actor):
                 True,
                 -1e10,
                 1e10,
-                5,
+                6,
                 s,
             )
         )
     result = mp_pool.starmap(alpha_beta_search, params)
-    debug = [x for x in result if x[0] >= 1000000]
+    # debug = [x for x in result if x[0] >= 1000000]
     result.sort(key=lambda x: x[0], reverse=True)
+    debug = [x[0] for x in result]
     alpha, beta, bestmov = result[0]
     print("##end genmove", alpha, beta, bestmov, search_point, debug)
-    play(actor, bestmov)
+    play(actor, bestmov[0][:2])
+    print(board_history, "\n")
     # print(board_state, "\n")
-    return bestmov
+    return bestmov[0][:2]
 
 
 def update_search_point(board, nextpos, sp, wide=False):
@@ -199,15 +203,17 @@ def alpha_beta_search(
 ):
     # cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
     # cached = abs_cache.get("".join([str(x) for x in (board + 1).flatten().tolist()]))
-    cache_code = "".join([str(x) for x in (board + 1).flatten().tolist()]) + str(level)
-    # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
-    cached = abs_cache.get(cache_code)
-    if cached is not None:
-        alpha, beta, bestmove = cached
-        return alpha, beta, bestmove
+    cache_code = None
+    if first_point is None:
+        cache_code = "".join([str(x) for x in (board + 1).flatten().tolist()]) + str(level)
+        # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
+        cached = abs_cache.get(cache_code)
+        if cached is not None:
+            alpha, beta, bestmove = cached
+            return alpha, beta, bestmove
     # global call_cnt
     # call_cnt += 1
-    # if call_cnt % 10 == 0:
+    # if call_cnt % 100 == 0:
     #     print(call_cnt)
     bestmove = None
     h, w = board.shape
@@ -256,7 +262,7 @@ def alpha_beta_search(
                 level = 0
                 break
 
-            if v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
+            if v_actor[1] > eva.Pattern.BLOCKED_FOUR.value:
                 continue
             #     alpha = -1000000 - level
             #     bestmove = [[*next_pos, ismax, v_actor]]
@@ -273,7 +279,7 @@ def alpha_beta_search(
                 level = 0
                 break
 
-            if v_actor[0] > eva.Pattern.BLOCKED_FOUR.value :
+            if v_actor[0] > eva.Pattern.BLOCKED_FOUR.value:
                 continue
             #     beta = 1000000 + level
             #     bestmove = [[*next_pos, ismax, v_actor]]
@@ -359,13 +365,32 @@ def alpha_beta_search(
                 break
 
     # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
-    abs_cache[cache_code] = (alpha, beta, bestmove)
+    if cache_code is not None:
+        abs_cache[cache_code] = (alpha, beta, bestmove)
 
     return alpha, beta, bestmove
 
 
 if __name__ == "__main__":
     serv(8080, board_size, clearboard, play, genmove)
+    # time.sleep(1)
     # board_size(15)
-    # play(1, [8,8])
+    # clearboard()
+    # actions = [
+    #     [7, 7, 1],
+    #     [8, 8, -1],
+    #     [7, 9, 1],
+    #     [6, 8, -1],
+    #     [7, 8, 1],
+    #     [7, 10, -1],
+    #     [8, 7, 1],
+    #     [6, 7, -1],
+    #     [6, 9, 1],
+    #     [9, 6, -1],
+    #     [9, 9, 1],
+    #     [8, 9, -1],
+    #     [5, 10, 1],
+    # ]
+    # for x, y, a in actions:
+    #     play(a, [x, y])
     # genmove(-1)
