@@ -39,7 +39,7 @@ def play(actor, pos):
 
 def genmove(actor):
     print("in genmove", actor)
-    # return mp_genmove(actor)
+    return mp_genmove(actor)
     if False:
         size = board_state.shape[0]
         time.sleep(2)
@@ -80,8 +80,9 @@ def genmove(actor):
 
 if __name__ == "__main__":
     mp.set_start_method("spawn")
-    # mp_pool = mp.Pool(mp.cpu_count() // 2)
-    mp_pool = mp.Pool(1)
+    mp_pool = mp.Pool(mp.cpu_count() // 2)
+    # mp_pool = mp.Pool(1)
+    mp_abs_cache = mp.Manager().dict()
 
 
 def mp_genmove(actor):
@@ -97,6 +98,7 @@ def mp_genmove(actor):
                 1e10,
                 6,
                 s,
+                mp_abs_cache,
             )
         )
     result = mp_pool.starmap(alpha_beta_search, params)
@@ -116,7 +118,7 @@ gtime = 0
 
 np.random.seed(1234)
 zobrist = np.random.randint(1e8, 1e14, (15, 15, 3))
-abs_cache = {}
+local_abs_cache = {}
 
 
 def swap(data):
@@ -132,10 +134,14 @@ def alpha_beta_search(
     beta,
     level,
     first_point=None,
+    mp_abs_cache=None
 ):
+    # salpha = -1e10
+    # sbeta = 1e10
     # cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
     # cached = abs_cache.get("".join([str(x) for x in (board + 1).flatten().tolist()]))
     cache_code = None
+    abs_cache = mp_abs_cache if mp_abs_cache is not None else local_abs_cache
     if first_point is None:
         cache_code = "".join([str(x) for x in (boardState.position + 1).flatten().tolist()]) + str(level)
         # cache_code = np.bitwise_xor.reduce(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).flatten())
@@ -223,6 +229,15 @@ def alpha_beta_search(
             if v_actor[0] >= eva.Pattern.THREE.value:
                 continue
 
+        # if ismax:
+        #     if v > salpha:
+        #         salpha = v
+        #         sbestmove = [[*next_pos, ismax]]
+        # else:
+        #     if v < sbeta:
+        #         sbeta = v
+        #         sbestmove = [[*next_pos, ismax]]
+
         if level == 1:
 
             if ismax:
@@ -235,9 +250,15 @@ def alpha_beta_search(
                     bestmove = [[*next_pos, ismax]]
         else:
             # len(deeper_search_q) == 0 or
-            # if len(deeper_search_q) == 0 or level >=3 or v_actor[0] > eva.Pattern.BLOCKED_FOUR.value or v_actor[1] > eva.Pattern.BLOCKED_FOUR.value :
+            # if level >= 3 or v_actor[0] > eva.Pattern.THREE.value or v_actor[1] > eva.Pattern.THREE.value :
             if True:
                 deeper_search_q.append([v, new_boardState, next_pos])
+    # if len(deeper_search_q) == 0:
+    #     if ismax:
+    #         alpha = salpha
+    #     else:
+    #         beta = sbeta
+    #     bestmove = [[*next_pos, ismax]]
 
     if level > 1: # Start deeper search
         if ismax:
@@ -301,6 +322,8 @@ if __name__ == "__main__":
     #     [8, 9, -1],
     #     [5, 10, 1],
     # ]
+    # actions = [[7, 7, 1], [7, 8, -1], [8, 8, 1], [9, 9, -1], [9, 7, 1], [6, 7, -1], [8, 9, 1], [8, 7, -1], [10, 6, 1]]
+
     # for x, y, a in actions:
     #     play(a, [x, y])
     # genmove(-1)
