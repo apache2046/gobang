@@ -12,7 +12,7 @@ class BoardState:
 
     def setSize(self, size):
         self.size = size
-        self.position = np.zeros((size, size))  # 棋子摆放，-1,0,1个取值
+        self.position = np.zeros((size, size), dtype=np.int32)  # 棋子摆放，-1,0,1个取值
         self.score_v = np.zeros((size, 2), dtype=np.int32)  # 垂直| 方向,棋面评估
         self.score_h = np.zeros((size, 2), dtype=np.int32)  # 水平- 方向,棋面评估
         self.score_lu2rb = np.zeros((size * 2 - 1, 2), dtype=np.int32)  # 左上到右下\ 的对角线方向,棋面评估
@@ -72,5 +72,5 @@ class BoardState:
                 + self.score_h[:, i].sum()
                 + self.score_lu2rb[:, i].sum()
                 + self.score_lb2ru[:, i].sum()
-            )
+            ).tolist()
         return old_v1, old_v2, old_v3, old_v4, v1, v2, v3, v4
