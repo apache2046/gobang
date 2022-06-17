@@ -108,7 +108,7 @@ def mp_genmove(actor):
     result.sort(key=lambda x: x[0], reverse=True)
     debug = [x[0] for x in result]
     alpha, beta, bestmov = result[0]
-    print("##end genmove", f'{time.time()-stime:.1f}S', alpha, beta, bestmov, board_state.search_point, debug)
+    print("##end genmove", f"{time.time()-stime:.1f}S", alpha, beta, bestmov, board_state.search_point, debug)
     play(actor, bestmov[0][:2])
     print(board_state.place_history, "\n")
     # print(board_state, "\n")
@@ -167,7 +167,9 @@ def is_1point_danger_removed(
 # fmt: on
 
 
-def alpha_beta_search(actor, boardState: BoardState, ismax, alpha, beta, level, trace, first_point=None, mp_abs_cache=None):
+def alpha_beta_search(
+    actor, boardState: BoardState, ismax, alpha, beta, level, trace, first_point=None, mp_abs_cache=None
+):
     # cached = abs_cache.get(np.take_along_axis(zobrist, np.expand_dims(board + 1, 2), 2).sum())
     # cached = abs_cache.get("".join([str(x) for x in (board + 1).flatten().tolist()]))
     cache_code = None
@@ -243,8 +245,11 @@ def alpha_beta_search(actor, boardState: BoardState, ismax, alpha, beta, level, 
                 early_prune = True
                 break
 
-
-        if level == 1 or (level < 5 and (v_actor[0] < eva.Pattern.THREE.value or v_actor[1] < eva.Pattern.THREE.value)):
+        # if level == 1 or (level < 5 and (v_actor[0] < eva.Pattern.THREE.value or v_actor[1] < eva.Pattern.THREE.value)):
+        if level == 1 or (
+            (level == 4 or level == 2)
+            and (v_actor[0] < eva.Pattern.THREE.value or v_actor[1] < eva.Pattern.THREE.value)
+        ):
             next_pos_isleaf = True
 
         deeper_search_q.append([v, new_boardState, next_pos, next_pos_isleaf])
@@ -265,13 +270,7 @@ def alpha_beta_search(actor, boardState: BoardState, ismax, alpha, beta, level, 
             ntrace = trace.copy()
             ntrace.append(nnext_pos)
             c_alpha, c_beta, c_bestmove = alpha_beta_search(
-                actor,
-                nnew_boardState,
-                not ismax,
-                alpha,
-                beta,
-                level - 1,
-                ntrace
+                actor, nnew_boardState, not ismax, alpha, beta, level - 1, ntrace
             )
         # if level == 6:
         #     print(1, "//", len(deeper_search_q))
