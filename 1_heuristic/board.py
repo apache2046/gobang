@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 from typing import List
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import evaluate as eva
 
@@ -74,3 +75,27 @@ class BoardState:
                 + self.score_lb2ru[:, i].sum()
             ).tolist()
         return old_v1, old_v2, old_v3, old_v4, v1, v2, v3, v4
+
+    def cur_patterns(self):
+        patterns = [[], []]
+
+        def _cur_patterns(score_line):
+            for v in score_line:
+                for i in range(2):
+                    if v[i] >= eva.StonePattern.FIVE.value:
+                        patterns[i].append[eva.StonePattern.FIVE.value]
+
+                    elif v[i] >= eva.StonePattern.FOUR.value:
+                        patterns[i].append[eva.StonePattern.FOUR.value]
+
+                    elif v[i] >= eva.StonePattern.BLOCKED_FOUR.value:
+                        patterns[i].append[eva.StonePattern.BLOCKED_FOUR.value]
+
+                    elif v[i] >= eva.StonePattern.THREE.value:
+                        patterns[i].append[eva.StonePattern.THREE.value]
+
+        _cur_patterns(self.score_v)
+        _cur_patterns(self.score_h)
+        _cur_patterns(self.score_lu2rb)
+        _cur_patterns(self.score_lb2ru)
+        return patterns

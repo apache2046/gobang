@@ -1,10 +1,10 @@
 from enum import Enum
 import numpy as np
 
-__all__ = ["evaluate_one", "evaluate_all", "evaluate_4dir_lines", "Pattern"]
+__all__ = ["evaluate_one", "evaluate_all", "evaluate_4dir_lines", "StonePattern"]
 
 
-class Pattern(Enum):
+class StonePattern(Enum):
     ONE = 10
     TWO = 100
     THREE = 10000
@@ -15,35 +15,35 @@ class Pattern(Enum):
     BLOCKED_THREE = 150
     BLOCKED_FOUR = 15000
 
-    # print(Pattern.BLOCKED_FOUR.value)
+    # print(StonePattern.BLOCKED_FOUR.value)
 
 
 lived_four = [[0, 1, 1, 1, 1, 0]]
 
-pattern_map = {(1, 1, 1, 1, 1): Pattern.FIVE}
+pattern_map = {(1, 1, 1, 1, 1): StonePattern.FIVE}
 pattern_search_order = [[(1, 1, 1, 1, 1), 5]]
 
 for four_p in lived_four:
     tmp4 = four_p.copy()
-    pattern_map[tuple(tmp4)] = Pattern.FOUR
+    pattern_map[tuple(tmp4)] = StonePattern.FOUR
     pattern_search_order.append([tuple(tmp4), sum(tmp4)])
     for i3 in range(len(tmp4)):
         if tmp4[i3] == 1:
             tmp3 = tmp4.copy()
             tmp3[i3] = 0
-            pattern_map[tuple(tmp3)] = Pattern.THREE
+            pattern_map[tuple(tmp3)] = StonePattern.THREE
             pattern_search_order.append([tuple(tmp3), sum(tmp3)])
             for i2 in range(len(tmp3)):
                 if tmp3[i2] == 1:
                     tmp2 = tmp3.copy()
                     tmp2[i2] = 0
-                    pattern_map[tuple(tmp2)] = Pattern.TWO
+                    pattern_map[tuple(tmp2)] = StonePattern.TWO
                     pattern_search_order.append([tuple(tmp2), sum(tmp2)])
                     for i1 in range(len(tmp2)):
                         if tmp2[i1] == 1:
                             tmp1 = tmp2.copy()
                             tmp1[i1] = 0
-                            pattern_map[tuple(tmp1)] = Pattern.ONE
+                            pattern_map[tuple(tmp1)] = StonePattern.ONE
                             pattern_search_order.append([tuple(tmp1), sum(tmp1)])
 
 print(pattern_map)
@@ -51,25 +51,25 @@ print(pattern_map)
 blocked_four = [[1, 1, 1, 1, 0], [1, 1, 1, 0, 1], [1, 1, 0, 1, 1], [1, 0, 1, 1, 1], [0, 1, 1, 1, 1]]
 for blocked_four_p in blocked_four:
     tmp4 = blocked_four_p.copy()
-    pattern_map[tuple(tmp4)] = Pattern.BLOCKED_FOUR
+    pattern_map[tuple(tmp4)] = StonePattern.BLOCKED_FOUR
     pattern_search_order.append([tuple(tmp4), sum(tmp4)])
     for i3 in range(len(tmp4)):
         if tmp4[i3] == 1:
             tmp3 = tmp4.copy()
             tmp3[i3] = 0
-            pattern_map[tuple(tmp3)] = Pattern.BLOCKED_THREE
+            pattern_map[tuple(tmp3)] = StonePattern.BLOCKED_THREE
             pattern_search_order.append([tuple(tmp3), sum(tmp3)])
             for i2 in range(len(tmp3)):
                 if tmp3[i2] == 1:
                     tmp2 = tmp3.copy()
                     tmp2[i2] = 0
-                    pattern_map[tuple(tmp2)] = Pattern.BLOCKED_TWO
+                    pattern_map[tuple(tmp2)] = StonePattern.BLOCKED_TWO
                     pattern_search_order.append([tuple(tmp2), sum(tmp2)])
                     for i1 in range(len(tmp2)):
                         if tmp2[i1] == 1:
                             tmp1 = tmp2.copy()
                             tmp1[i1] = 0
-                            pattern_map[tuple(tmp1)] = Pattern.BLOCKED_ONE
+                            pattern_map[tuple(tmp1)] = StonePattern.BLOCKED_ONE
                             pattern_search_order.append([tuple(tmp1), sum(tmp1)])
 
 pattern_search_order.sort(key=lambda x: pattern_map[x[0]].value, reverse=True)
@@ -159,8 +159,8 @@ def evaluate_one(board, x, y, actor):
     sum = 0
     for line in lines:
         if be5(line, actor):
-            # print(x, y, line, Pattern.FIVE)
-            sum += Pattern.FIVE.value
+            # print(x, y, line, StonePattern.FIVE)
+            sum += StonePattern.FIVE.value
             continue
         nl = line.copy()
         while len(nl) > 6:

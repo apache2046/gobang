@@ -30,7 +30,7 @@ class App extends Component {
   constructor(props) {
     super(props);
 
-    let board_size = 11
+    let board_size = 15
 
     let emptyBoard = new Array(board_size);
     for (let i = 0; i < board_size; i++) {
@@ -88,7 +88,7 @@ class App extends Component {
       method: 'post',
       url: '/boardsize',
       data: {
-        size: 11,
+        size: 15,
       }
     });
     const result2 = await axios({
@@ -119,8 +119,13 @@ class App extends Component {
         pos,
       }
     });
-    console.log('end play')
-    return pos
+    console.log('end play', result)
+    // let ret = {}
+    // ret.actor = result.data[0]
+    // ret.pos = result.data[1]
+    // ret.v_actor = result.data[2]
+    // ret.patterns = result.data[3]
+    return result.data.data
   };
   async genmove(actor) {
     const result = await axios({
@@ -132,7 +137,12 @@ class App extends Component {
     });
     // this.setState({ 'isBusy': false })
     console.log('end genmove')
-    return result.data.pos
+    // let ret = {}
+    // ret.actor = result.data[0]
+    // ret.pos = result.data[1]
+    // ret.v_actor = result.data[2]
+    // ret.patterns = result.data[3]
+    return result.data.data
   };
 
   render() {
@@ -167,8 +177,9 @@ class App extends Component {
       {
         style: {
           display: "grid",
-          gridTemplateColumns: "15em auto",
-          gridColumnGap: "1em",
+          justifyContent: "center",
+          // gridTemplateColumns: "15em auto",
+          // gridColumnGap: "1em",
         },
       },
 
@@ -203,12 +214,23 @@ class App extends Component {
             // board[y][x] = 1
             // this.setState({ board: board, isBusy: true })
             // this.play(1, [x, y])
-            if(this.waiting)
+            if (this.waiting)
               return
             this.waiting = true
-            this.play(1, [x, y]).then((pos)=>{this.placeStone(1, pos)}).then(()=>{
-              return this.genmove(-1).then((pos)=>{this.placeStone(-1, pos)})
-            }).then(()=>{this.waiting = false})
+            this.play(1, [x, y]).then(
+              (data) => {
+                let [actor, pos, v_actor, patterns ] = data
+                this.placeStone(actor, pos)
+                console.log(v_actor, patterns )
+              }).then(() => {
+                return this.genmove(-1).then(
+                  (data) => {
+                    let [ actor, pos, v_actor, patterns ] = data
+                    this.placeStone(actor, pos)
+                    console.log(v_actor, patterns )
+                  }
+                )
+              }).then(() => { this.waiting = false })
           },
         })
       )

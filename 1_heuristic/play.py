@@ -11,6 +11,7 @@ from back_end import serv
 import numpy as np
 import evaluate as eva
 from board import BoardState
+StonePattern = eva.StonePattern
 
 if __name__ == "__main__":
     board_state = BoardState()
@@ -33,12 +34,20 @@ def clearboard():
 def play(actor, pos):
     print("in play", actor, pos)
     board_state.place_stone(actor, pos)
+    cur_patterns = board_state.cur_patterns()
+
     print("v_actor:", board_state.v_actor, len(board_state.search_point))
-    return True
+    return [actor, pos, board_state.v_actor, cur_patterns]
 
 
 def genmove(actor):
     print("in genmove", actor)
+    ## empty board
+    if len(board_state.place_history) == 0:
+        p = board_state.size // 2
+        p = [p, p]
+        return play(actor, p)
+
     return mp_genmove(actor)
     if False:
         size = board_state.shape[0]
@@ -58,7 +67,7 @@ def genmove(actor):
             6,
         )
         # print('cs', alpha, beta)
-        # if alpha < eva.Pattern.FOUR.value:
+        # if alpha < StonePattern.FOUR.value:
         #     alpha, beta, bestmov = alpha_beta_search(
         #         new_board_state,
         #         board_score_v,
@@ -109,10 +118,9 @@ def mp_genmove(actor):
     debug = [x[0] for x in result]
     alpha, beta, bestmov = result[0]
     print("##end genmove", f"{time.time()-stime:.1f}S", alpha, beta, bestmov, board_state.search_point, debug)
-    play(actor, bestmov[0][:2])
+    ret = play(actor, bestmov[0][:2])
     print(board_state.place_history, "\n")
-    # print(board_state, "\n")
-    return bestmov[0][:2]
+    return ret
 
 
 call_cnt = 0
@@ -129,29 +137,29 @@ def swap(data):
 
 def will_winnext(data):
     for item in data:
-        if item >= eva.Pattern.THREE:  # also include BLOCKED_FOUR
+        if item >= StonePattern.THREE:  # also include BLOCKED_FOUR
             return True
     else:
         return False
 
 def is_win(me, rival):
     return (
-        me >= eva.Pattern.FIVE.value
-        or me >= eva.Pattern.FOUR.value and rival < eva.Pattern.BLOCKED_FOUR.value
+        me >= StonePattern.FIVE.value
+        or me >= StonePattern.FOUR.value and rival < StonePattern.BLOCKED_FOUR.value
     )
 
 def is_lose(me, rival):
     return (
-        me >= eva.Pattern.FIVE.value
-        or me >= eva.Pattern.FOUR.value and rival < eva.Pattern.BLOCKED_FOUR.value
+        me >= StonePattern.FIVE.value
+        or me >= StonePattern.FOUR.value and rival < StonePattern.BLOCKED_FOUR.value
     )
 
 def is_badmove(me, rival):
     # 对方有冲四
     # 对方有活三但我方无冲四
     return (
-        rival >= eva.Pattern.BLOCKED_FOUR.value
-        or rival >= eva.Pattern.THREE.value and me < eva.Pattern.BLOCKED_FOUR.value
+        rival >= StonePattern.BLOCKED_FOUR.value
+        or rival >= StonePattern.THREE.value and me < StonePattern.BLOCKED_FOUR.value
     )
 
 def is_1point_danger_removed(
@@ -159,10 +167,10 @@ def is_1point_danger_removed(
         rival_v1, rival_v2, rival_v3, rival_v4):
 
     return (
-        rival_old_v1 - rival_v1 >= eva.Pattern.BLOCKED_FOUR.value
-        or rival_old_v2 - rival_v2 >= eva.Pattern.BLOCKED_FOUR.value
-        or rival_old_v3 - rival_v3 >= eva.Pattern.BLOCKED_FOUR.value
-        or rival_old_v4 - rival_v4 >= eva.Pattern.BLOCKED_FOUR.value
+        rival_old_v1 - rival_v1 >= StonePattern.BLOCKED_FOUR.value
+        or rival_old_v2 - rival_v2 >= StonePattern.BLOCKED_FOUR.value
+        or rival_old_v3 - rival_v3 >= StonePattern.BLOCKED_FOUR.value
+        or rival_old_v4 - rival_v4 >= StonePattern.BLOCKED_FOUR.value
     )
 # fmt: on
 
@@ -245,10 +253,10 @@ def alpha_beta_search(
                 early_prune = True
                 break
 
-        # if level == 1 or (level < 5 and (v_actor[0] < eva.Pattern.THREE.value or v_actor[1] < eva.Pattern.THREE.value)):
+        # if level == 1 or (level < 5 and (v_actor[0] < StonePattern.THREE.value or v_actor[1] < StonePattern.THREE.value)):
         if level == 1 or (
             (level == 4 or level == 2)
-            and (v_actor[0] < eva.Pattern.THREE.value or v_actor[1] < eva.Pattern.THREE.value)
+            and (v_actor[0] < StonePattern.THREE.value or v_actor[1] < StonePattern.THREE.value)
         ):
             next_pos_isleaf = True
 
