@@ -38,7 +38,7 @@ def serv(port=8080, boardsize_cb=None, clearboard_cb=None, play_cb=None, genmove
             ret = play_cb(params["actor"], params["pos"])
 
         if ret:
-            return jsonify({"status": "ok"})
+            return jsonify({"status": "ok", "data": ret})
         else:
             return jsonify({"status": "failed"})
 
@@ -49,7 +49,7 @@ def serv(port=8080, boardsize_cb=None, clearboard_cb=None, play_cb=None, genmove
         if genmove_cb is not None:
             ret = genmove_cb(params["actor"])
             print("genmove2 ", ret, type(ret), type(ret[1]))
-            return jsonify({"status": "ok", "pos": ret})
+            return jsonify({"status": "ok", "data": ret})
         return jsonify({"status": "failed"})
 
     app.run(host="0.0.0.0", port=port, debug=True, threaded=True, processes=1)
