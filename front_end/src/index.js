@@ -173,68 +173,141 @@ class App extends Component {
 
     console.log('in render2')
     return h(
-      "section",
-      {
-        style: {
-          display: "grid",
-          justifyContent: "center",
-          // gridTemplateColumns: "15em auto",
-          // gridColumnGap: "1em",
-        },
-      },
-
+      "div",
+      {},
       h(
         "div",
-        {},
-        h(Goban, {
-          innerProps: {
-            onContextMenu: (evt) => evt.preventDefault(),
+        {
+          style: {
+            display: "grid",
+            justifyContent: "center",
+            // gridTemplateColumns: "15em auto",
+            // gridColumnGap: "1em",
           },
+        },
 
-          vertexSize,
-          animate: true,
-          busy: isBusy,
-          coordX: alternateCoordinates ? (i) => chineseCoord[i] : undefined,
-          coordY: alternateCoordinates ? (i) => i + 1 : undefined,
-
-          signMap: board,
-          showCoordinates: true,
-          // fuzzyStonePlacement,
-          // animateStonePlacement,
-          // paintMap: showPaintMap && paintMap,
-          // heatMap: showHeatMap && heatMap,
-          markerMap,
-          // ghostStoneMap: showGhostStones && ghostStoneMap,
-
-          onVertexMouseUp: (evt, [x, y]) => {
-            let sign = evt.button === 0 ? 1 : -1;
-            //   let newBoard = this.state.board.makeMove(sign, [x, y])
-
-            //   this.setState({board: newBoard})
-            // board[y][x] = 1
-            // this.setState({ board: board, isBusy: true })
-            // this.play(1, [x, y])
-            if (this.waiting)
-              return
-            this.waiting = true
-            this.play(1, [x, y]).then(
-              (data) => {
-                let [actor, pos, v_actor, patterns ] = data
-                this.placeStone(actor, pos)
-                console.log(v_actor, patterns )
-              }).then(() => {
-                return this.genmove(-1).then(
-                  (data) => {
-                    let [ actor, pos, v_actor, patterns ] = data
-                    this.placeStone(actor, pos)
-                    console.log(v_actor, patterns )
-                  }
-                )
-              }).then(() => { this.waiting = false })
+        h(
+          "div",
+          {
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+            }
           },
-        })
+          h(
+            'div',
+            {
+              style: {
+                width: '15em',
+                display: 'flex',
+                flexDirection: 'column',
+                paddingRight: '2em'
+              }
+            },
+            h(
+              'button',
+              {},
+              'haha1'
+            ),
+            h(
+              'button',
+              {},
+              'haha2'
+            )
+          ),
+          h(Goban, {
+            innerProps: {
+              onContextMenu: (evt) => evt.preventDefault(),
+            },
+
+            vertexSize,
+            animate: true,
+            busy: isBusy,
+            coordX: alternateCoordinates ? (i) => chineseCoord[i] : undefined,
+            coordY: alternateCoordinates ? (i) => i + 1 : undefined,
+
+            signMap: board,
+            showCoordinates: true,
+            // fuzzyStonePlacement,
+            // animateStonePlacement,
+            // paintMap: showPaintMap && paintMap,
+            // heatMap: showHeatMap && heatMap,
+            markerMap,
+            // ghostStoneMap: showGhostStones && ghostStoneMap,
+
+            onVertexMouseUp: (evt, [x, y]) => {
+              let sign = evt.button === 0 ? 1 : -1;
+              //   let newBoard = this.state.board.makeMove(sign, [x, y])
+
+              //   this.setState({board: newBoard})
+              // board[y][x] = 1
+              // this.setState({ board: board, isBusy: true })
+              // this.play(1, [x, y])
+              if (this.waiting)
+                return
+              this.waiting = true
+              this.play(1, [x, y]).then(
+                (data) => {
+                  let [actor, pos, v_actor, patterns] = data
+                  this.placeStone(actor, pos)
+                  console.log(v_actor, patterns)
+                }).then(() => {
+                  return this.genmove(-1).then(
+                    (data) => {
+                      let [actor, pos, v_actor, patterns] = data
+                      this.placeStone(actor, pos)
+                      console.log(v_actor, patterns)
+                    }
+                  )
+                }).then(() => { this.waiting = false })
+            },
+          }),
+          h(
+            'div',
+            {
+              style: {
+                width: '15em',
+                display: 'flex',
+                flexDirection: 'column',
+                marginLeft: '1em',
+                color: '#ffffff',
+                backgroundColor: '#000000'
+              }
+            },
+            h('p',
+              {},
+              "hahaha2 22222 22222 2222 22 222 222 2222"),
+            h('p',
+              {},
+              "hahaha")
+          )
+        ),
+      ),
+      h(
+        'div',
+        {
+          style:
+          {
+            position: 'absolute',
+            top: '0px',
+            bottom: '0px',
+            left: '0px',
+            right: '0px',
+            'z-index': 999,
+            color: '#ffffff',
+            'justify-content': 'center',
+            display:'flex',
+            backgroundColor: '#000000B0'
+          },
+        },
+
+        h('span', {
+          style:{
+            margin: 'auto'
+          }
+        }, 'haha')
       )
-    );
+    )
   }
 }
 

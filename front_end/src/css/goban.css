@@ -478,3 +478,6 @@
     bottom: -.12em;
     transform: rotate(-30deg);
 }
+
+
+body {  background-image: url(/imgs/tatami.png); }
