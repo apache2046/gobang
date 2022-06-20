@@ -80,19 +80,20 @@ class BoardState:
         patterns = [[], []]
 
         def _cur_patterns(score_line):
+            nonlocal patterns
             for v in score_line:
                 for i in range(2):
                     if v[i] >= eva.StonePattern.FIVE.value:
-                        patterns[i].append[eva.StonePattern.FIVE.value]
+                        patterns[i].append(eva.StonePattern.FIVE.value)
 
                     elif v[i] >= eva.StonePattern.FOUR.value:
-                        patterns[i].append[eva.StonePattern.FOUR.value]
+                        patterns[i].append(eva.StonePattern.FOUR.value)
 
                     elif v[i] >= eva.StonePattern.BLOCKED_FOUR.value:
-                        patterns[i].append[eva.StonePattern.BLOCKED_FOUR.value]
+                        patterns[i].append(eva.StonePattern.BLOCKED_FOUR.value)
 
                     elif v[i] >= eva.StonePattern.THREE.value:
-                        patterns[i].append[eva.StonePattern.THREE.value]
+                        patterns[i].append(eva.StonePattern.THREE.value)
 
         _cur_patterns(self.score_v)
         _cur_patterns(self.score_h)

@@ -4,28 +4,6 @@ const { useState, useEffect } = require('preact/hooks');
 const { Goban } = require("@sabaki/shudan");
 const axios = require('axios').default
 
-// const signMap = [
-//   [0, 0, 0, -1, -1, -1, 1, 0, 1, 1, -1, -1, 0, -1, 0, -1, -1, 1, 0],
-//   [0, 0, -1, 0, -1, 1, 1, 1, 0, 1, -1, 0, -1, -1, -1, -1, 1, 1, 0],
-//   [0, 0, -1, -1, -1, 1, 1, 0, 0, 1, 1, -1, -1, 1, -1, 1, 0, 1, 0],
-//   [0, 0, 0, 0, -1, -1, 1, 0, 1, -1, 1, 1, 1, 1, 1, 0, 1, 0, 0],
-//   [0, 0, 0, 0, -1, 0, -1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0],
-//   [0, 0, -1, 0, 0, -1, -1, 1, 0, -1, -1, 1, -1, -1, 0, 1, 0, 0, 1],
-//   [0, 0, 0, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, 1, 1, 1],
-//   [0, 0, -1, 1, 1, 0, 1, -1, -1, 1, 0, 1, -1, 0, 1, -1, -1, -1, 1],
-//   [0, 0, -1, -1, 1, 1, 1, 0, -1, 1, -1, -1, 0, -1, -1, 1, 1, 1, 1],
-//   [0, 0, -1, 1, 1, -1, -1, -1, -1, 1, 1, 1, -1, -1, -1, -1, 1, -1, -1],
-//   [-1, -1, -1, -1, 1, 1, 1, -1, 0, -1, 1, -1, -1, 0, -1, 1, 1, -1, 0],
-//   [-1, 1, -1, 0, -1, -1, -1, -1, -1, -1, 1, -1, 0, -1, -1, 1, -1, 0, -1],
-//   [1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 0, 1, -1, 0, -1, 1, -1, -1, 0],
-//   [0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, 1, -1, 1],
-//   [0, 0, -1, 1, 0, 0, 1, 1, -1, -1, 0, 1, -1, 1, -1, 1, -1, 0, -1],
-//   [0, 0, 1, 0, 1, 0, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 0],
-//   [0, 0, 0, 0, 1, 1, 0, 1, -1, 0, -1, -1, 1, 1, 1, 1, -1, -1, -1],
-//   [0, 0, 1, 1, -1, 1, 1, -1, 0, -1, -1, 1, 1, 1, 1, 0, 1, -1, 1],
-//   [0, 0, 0, 1, -1, -1, -1, -1, -1, 0, -1, -1, 1, 1, 0, 1, 1, 1, 0],
-// ];
-
 class App extends Component {
   constructor(props) {
     super(props);
@@ -44,16 +22,7 @@ class App extends Component {
         emptyMarkerMap[i][j] = null
     }
     this.emptyMarkerMap = emptyMarkerMap
-    // let signMap = [
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    //   [0,0,0,0,0,0,0,0],
-    // ]
+
     this.state = {
       board: emptyBoard,
       vertexSize: 36,//24,
@@ -71,6 +40,9 @@ class App extends Component {
       showSelection: false,
       isBusy: true,
       init: false,
+      showSelectMenu: true,
+      player:1,
+      waiting:false,
     };
 
     this.audio_pachi = []
@@ -120,11 +92,7 @@ class App extends Component {
       }
     });
     console.log('end play', result)
-    // let ret = {}
-    // ret.actor = result.data[0]
-    // ret.pos = result.data[1]
-    // ret.v_actor = result.data[2]
-    // ret.patterns = result.data[3]
+
     return result.data.data
   };
   async genmove(actor) {
@@ -137,11 +105,7 @@ class App extends Component {
     });
     // this.setState({ 'isBusy': false })
     console.log('end genmove')
-    // let ret = {}
-    // ret.actor = result.data[0]
-    // ret.pos = result.data[1]
-    // ret.v_actor = result.data[2]
-    // ret.patterns = result.data[3]
+
     return result.data.data
   };
 
@@ -163,6 +127,9 @@ class App extends Component {
       showLines,
       showSelection,
       init,
+      showSelectMenu,
+      player,
+      waiting
     } = this.state;
 
     console.log('in render')
@@ -246,13 +213,13 @@ class App extends Component {
               if (this.waiting)
                 return
               this.waiting = true
-              this.play(1, [x, y]).then(
+              this.play(player, [x, y]).then(
                 (data) => {
                   let [actor, pos, v_actor, patterns] = data
                   this.placeStone(actor, pos)
                   console.log(v_actor, patterns)
                 }).then(() => {
-                  return this.genmove(-1).then(
+                  return this.genmove(-player).then(
                     (data) => {
                       let [actor, pos, v_actor, patterns] = data
                       this.placeStone(actor, pos)
@@ -288,6 +255,7 @@ class App extends Component {
         {
           style:
           {
+            display: showSelectMenu ? "flex":"none",
             position: 'absolute',
             top: '0px',
             bottom: '0px',
@@ -296,16 +264,56 @@ class App extends Component {
             'z-index': 999,
             color: '#ffffff',
             'justify-content': 'center',
-            display:'flex',
+            // display: 'flex',
             backgroundColor: '#000000B0'
           },
         },
 
-        h('span', {
-          style:{
-            margin: 'auto'
-          }
-        }, 'haha')
+        // h('span', {
+        //   style: {
+        //     margin: 'auto'
+        //   }
+        // },
+          h('form', {
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#888888',
+              padding: '1em',
+              margin: 'auto',
+              // "box-shadow": "10px 10px"
+            }
+          },
+            h('span', {}, "请选择谁先："),
+            h('button', {
+              type: 'button',
+              onClick: evt => {
+                this.setState({ showSelectMenu: false, player: 1})
+                console.log('AAA')
+              },
+              style: {
+                width: '12em', padding: '1em', margin: '1em',
+              }
+            }, "我先手"),
+
+            h('button', {
+              type: 'button',
+              onClick: evt => {
+                this.setState({ showSelectMenu: false , player:-1})
+                this.genmove(1).then(
+                  (data) => {
+                    let [actor, pos, v_actor, patterns] = data
+                    this.placeStone(actor, pos)
+                    console.log(v_actor, patterns)
+                  })
+                console.log('BBB')
+              },
+              style: {
+                width: '12em', padding: '1em', margin: '1em',
+              }
+            }, "电脑先手")
+          )
+        // )
       )
     )
   }
