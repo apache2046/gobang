@@ -112,10 +112,10 @@ class App extends Component {
 
     return result.data.data
   };
-  pattern_desc(patterns){
-    let d1 = [`黑棋:`, h('br',{})]
+  pattern_desc(patterns, v_actor){
+    let d1 = [`黑棋: `, h('br',{})]
 
-    let d2 = [`白棋:`, h('br',{})]
+    let d2 = [`白棋: `, h('br',{})]
     patterns[0].forEach(item => {
       d1.push(this.pattern_map[item])
       d1.push(h('br',{}))
@@ -133,12 +133,14 @@ class App extends Component {
           flexDirection: 'column',
           marginLeft: '1em',
           color: '#ffffff',
-          backgroundColor: '#000000'
+          backgroundColor: '#000000',
+          padding: '1em'
         }
       },
       h('p',
         {},
         d1),
+      h('p',{},""),
       h('p',
         {},
         d2)
@@ -166,7 +168,8 @@ class App extends Component {
       showSelectMenu,
       player,
       waiting,
-      patterns
+      patterns,
+      v_actor
     } = this.state;
 
     console.log('in render')
@@ -198,27 +201,6 @@ class App extends Component {
               flexDirection: 'row',
             }
           },
-          // h(
-          //   'div',
-          //   {
-          //     style: {
-          //       width: '15em',
-          //       display: 'none',
-          //       flexDirection: 'column',
-          //       paddingRight: '2em'
-          //     }
-          //   },
-          //   // h(
-          //   //   'button',
-          //   //   {},
-          //   //   'haha1'
-          //   // ),
-          //   // h(
-          //   //   'button',
-          //   //   {},
-          //   //   'haha2'
-          //   // )
-          // ),
           h(Goban, {
             innerProps: {
               onContextMenu: (evt) => evt.preventDefault(),
@@ -247,20 +229,20 @@ class App extends Component {
               // board[y][x] = 1
               // this.setState({ board: board, isBusy: true })
               // this.play(1, [x, y])
-              if (this.waiting)
+              if (this.waiting || board[y][x] != undefined)
                 return
               this.waiting = true
               this.play(player, [x, y]).then(
                 (data) => {
                   let [actor, pos, v_actor, patterns] = data
-                  this.setState({patterns})
+                  this.setState({patterns, v_actor})
                   this.placeStone(actor, pos)
                   console.log(v_actor, patterns)
                 }).then(() => {
                   return this.genmove(-player).then(
                     (data) => {
                       let [actor, pos, v_actor, patterns] = data
-                      this.setState({patterns})
+                      this.setState({patterns, v_actor})
                       this.placeStone(actor, pos)
                       console.log(v_actor, patterns)
                     }
@@ -268,26 +250,7 @@ class App extends Component {
                 }).then(() => { this.waiting = false })
             },
           }),
-          // h(
-          //   'div',
-          //   {
-          //     style: {
-          //       width: '15em',
-          //       display: 'flex',
-          //       flexDirection: 'column',
-          //       marginLeft: '1em',
-          //       color: '#ffffff',
-          //       backgroundColor: '#000000'
-          //     }
-          //   },
-          //   h('p',
-          //     {},
-          //     "hahaha2 22222 22222 2222 22 222 222 2222"),
-          //   h('p',
-          //     {},
-          //     "hahaha")
-          // )
-          this.pattern_desc(patterns),
+          this.pattern_desc(patterns, v_actor),
         ),
       ),
       h(

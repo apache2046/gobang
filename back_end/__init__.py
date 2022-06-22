@@ -1,5 +1,6 @@
 from flask import Flask, request, g, abort, jsonify, render_template, redirect
 import os
+import time
 
 __all__ = ["serv"]
 
@@ -45,9 +46,13 @@ def serv(port=8080, boardsize_cb=None, clearboard_cb=None, play_cb=None, genmove
     @app.route("/genmove", methods=["POST"])
     def genmove():
         print("genmove")
+        stime = time.time()
         params = request.json
         if genmove_cb is not None:
             ret = genmove_cb(params["actor"])
+            rtime = 1 - (time.time() - stime)
+            if rtime > 0:
+                time.sleep(rtime)
             print("genmove2 ", ret, type(ret), type(ret[1]))
             return jsonify({"status": "ok", "data": ret})
         return jsonify({"status": "failed"})
