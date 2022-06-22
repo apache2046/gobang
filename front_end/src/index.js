@@ -43,12 +43,16 @@ class App extends Component {
       showSelectMenu: true,
       player:1,
       waiting:false,
+      patterns:[[],[]],
+      v_actor:[0,0]
     };
 
     this.audio_pachi = []
     for (let i = 0; i < 4; i++) {
       this.audio_pachi.push(new Audio(`/audio/${i}.mp3`))
     }
+
+    this.pattern_map = {10000:'活三', 100000:'活四', 10000000:'连五', 15000:'冲四', 150: '眠三'}
 
   }
   async playSound() {
@@ -108,6 +112,38 @@ class App extends Component {
 
     return result.data.data
   };
+  pattern_desc(patterns){
+    let d1 = [`黑棋:`, h('br',{})]
+
+    let d2 = [`白棋:`, h('br',{})]
+    patterns[0].forEach(item => {
+      d1.push(this.pattern_map[item])
+      d1.push(h('br',{}))
+    });
+    patterns[1].forEach(item => {
+      d2.push(this.pattern_map[item])
+      d2.push(h('br',{}))
+    });
+    return h(
+      'div',
+      {
+        style: {
+          width: '15em',
+          display: 'flex',
+          flexDirection: 'column',
+          marginLeft: '1em',
+          color: '#ffffff',
+          backgroundColor: '#000000'
+        }
+      },
+      h('p',
+        {},
+        d1),
+      h('p',
+        {},
+        d2)
+    )
+  }
 
   render() {
     let {
@@ -129,7 +165,8 @@ class App extends Component {
       init,
       showSelectMenu,
       player,
-      waiting
+      waiting,
+      patterns
     } = this.state;
 
     console.log('in render')
@@ -161,27 +198,27 @@ class App extends Component {
               flexDirection: 'row',
             }
           },
-          h(
-            'div',
-            {
-              style: {
-                width: '15em',
-                display: 'flex',
-                flexDirection: 'column',
-                paddingRight: '2em'
-              }
-            },
-            h(
-              'button',
-              {},
-              'haha1'
-            ),
-            h(
-              'button',
-              {},
-              'haha2'
-            )
-          ),
+          // h(
+          //   'div',
+          //   {
+          //     style: {
+          //       width: '15em',
+          //       display: 'none',
+          //       flexDirection: 'column',
+          //       paddingRight: '2em'
+          //     }
+          //   },
+          //   // h(
+          //   //   'button',
+          //   //   {},
+          //   //   'haha1'
+          //   // ),
+          //   // h(
+          //   //   'button',
+          //   //   {},
+          //   //   'haha2'
+          //   // )
+          // ),
           h(Goban, {
             innerProps: {
               onContextMenu: (evt) => evt.preventDefault(),
@@ -216,12 +253,14 @@ class App extends Component {
               this.play(player, [x, y]).then(
                 (data) => {
                   let [actor, pos, v_actor, patterns] = data
+                  this.setState({patterns})
                   this.placeStone(actor, pos)
                   console.log(v_actor, patterns)
                 }).then(() => {
                   return this.genmove(-player).then(
                     (data) => {
                       let [actor, pos, v_actor, patterns] = data
+                      this.setState({patterns})
                       this.placeStone(actor, pos)
                       console.log(v_actor, patterns)
                     }
@@ -229,25 +268,26 @@ class App extends Component {
                 }).then(() => { this.waiting = false })
             },
           }),
-          h(
-            'div',
-            {
-              style: {
-                width: '15em',
-                display: 'flex',
-                flexDirection: 'column',
-                marginLeft: '1em',
-                color: '#ffffff',
-                backgroundColor: '#000000'
-              }
-            },
-            h('p',
-              {},
-              "hahaha2 22222 22222 2222 22 222 222 2222"),
-            h('p',
-              {},
-              "hahaha")
-          )
+          // h(
+          //   'div',
+          //   {
+          //     style: {
+          //       width: '15em',
+          //       display: 'flex',
+          //       flexDirection: 'column',
+          //       marginLeft: '1em',
+          //       color: '#ffffff',
+          //       backgroundColor: '#000000'
+          //     }
+          //   },
+          //   h('p',
+          //     {},
+          //     "hahaha2 22222 22222 2222 22 222 222 2222"),
+          //   h('p',
+          //     {},
+          //     "hahaha")
+          // )
+          this.pattern_desc(patterns),
         ),
       ),
       h(
