@@ -86,7 +86,10 @@ class GoBang:
             return state, win
 
     def valid_positions(self, state):
-        return state[:, :, 2] == 1
+        # return state[:, :, 2] == 1
+        p = np.transpose(np.where(state[:, :, 2] == 1))
+        ret = [tuple(x) for x in p]
+        return ret
 
     def state2key(self, state):
         return bytes(state)
