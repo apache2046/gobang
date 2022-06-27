@@ -3,6 +3,7 @@ from game import GoBang
 from model import Policy_Value
 import numpy as np
 import torch
+import random
 
 nnet = Policy_Value().to('cuda:0')
 game = GoBang()
@@ -15,7 +16,7 @@ mse_loss = torch.nn.MSELoss()
 def train(samples):
     nnet.train()
     for i in range(100):
-        batch = np.random.choice(samples, batchsize)
+        batch = random.choices(samples, k=batchsize)
         states = []
         pis = []
         vs = []
@@ -28,7 +29,8 @@ def train(samples):
         vs = torch.stack(vs).to('cuda:0')
 
         pred_pis, pred_vs = nnet(states)
-        pi_loss = -torch.mean(pis.dot(torch.log(pred_pis)))
+        print(pis.shape, pred_pis.shape, vs.shape, pred_vs.shape)
+        pi_loss = -torch.mean(pis.matmul(torch.log(pred_pis).transpose(0, 1)))
         v_loss = mse_loss(pred_vs, vs)
         loss = pi_loss + v_loss
         opt.zero_grad()
@@ -38,8 +40,9 @@ def train(samples):
 
 def policyIterSP():
     samples = []
-    for i in range(100):
-        samples.append(*executeEpisode())
+    for i in range(4):
+        samples.extend(executeEpisode())
+    print('trainning...')
     train(samples)
 
 
@@ -47,9 +50,11 @@ def executeEpisode():
     mcts = MCTS(game)
     state = game.start_state()
     samples = []
-
+    cnt = 0
     while True:
-        for i in range(1000):
+        cnt += 1
+        print('GHB', cnt)
+        for i in range(100):
             mcts.search(state, nnet)
         pi = mcts.pi(state)
         samples.append([state, pi, None])

@@ -4,6 +4,7 @@ import numpy as np
 class GoBang:
     def __init__(self, size=15):
         self.size = size
+        self.nextstate_cache = {}
 
     def start_state(self):
         size = self.size
@@ -69,6 +70,9 @@ class GoBang:
         return False
 
     def next_state(self, state, pos):
+        #         sk = bytes(state)
+        # if self.nextstate_cache.get((sk, pos)) is not None:
+        #     return self.nextstate_cache.get(sk)
         state = state.copy()
         y = pos // self.size
         x = pos % self.size
@@ -80,17 +84,22 @@ class GoBang:
             state[:, :, 3] = -1
             state[y]
             win = self.have_five(state[:, :, 0], (x, y))
+            # win = False
             return state, win
         else:  # actor == -1
             state[y, x, 1] = 1
             state[:, :, 3] = 1
             win = self.have_five(state[:, :, 1], (x, y))
+            # win = False
             return state, win
 
     def valid_positions(self, state):
         # return state[:, :, 2] == 1
         p = np.transpose(np.where(state[:, :, 2] == 1))
         ret = [y * self.size + x for y, x in p]
+        # ret = []
+        # for y, x in p:
+        #     ret.append(y * self.size + x)
         return ret
 
     def state2key(self, state):
