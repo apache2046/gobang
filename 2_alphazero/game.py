@@ -69,7 +69,9 @@ class GoBang:
         return False
 
     def next_state(self, state, pos):
-        x, y = pos
+        state = state.copy()
+        y = pos // self.size
+        x = pos % self.size
 
         state[y, x, 2] = 0
         actor = state[0, 0, 3]
@@ -77,18 +79,18 @@ class GoBang:
             state[y, x, 0] = 1
             state[:, :, 3] = -1
             state[y]
-            win = self.have_five(state[:, :, 0], pos)
+            win = self.have_five(state[:, :, 0], (x, y))
             return state, win
         else:  # actor == -1
             state[y, x, 1] = 1
             state[:, :, 3] = 1
-            win = self.have_five(state[:, :, 1], pos)
+            win = self.have_five(state[:, :, 1], (x, y))
             return state, win
 
     def valid_positions(self, state):
         # return state[:, :, 2] == 1
         p = np.transpose(np.where(state[:, :, 2] == 1))
-        ret = [tuple(x) for x in p]
+        ret = [y * self.size + x for y, x in p]
         return ret
 
     def state2key(self, state):

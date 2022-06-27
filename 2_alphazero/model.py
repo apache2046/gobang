@@ -7,7 +7,7 @@ class Policy_Value(torch.nn.Module):
         super().__init__()
         self.backbone = Sequential(
             #15x15
-            Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1),
+            Conv2d(in_channels=4, out_channels=64, kernel_size=3, stride=1, padding=1),
             BatchNorm2d(64),
             ReLU(),
 
@@ -54,4 +54,14 @@ class Policy_Value(torch.nn.Module):
         p = self.policy_head(x)
         v = self.value_head(x)
         return p, v
+
+    def infer(self, x):
+        self.eval()
+        x = torch.tensor(x, dtype=torch.float32).to('cuda:0')
+        x.unsqueeze_(0)
+        x = x.permute(0, 3, 1, 2)
+        with torch.no_grad():
+            p, v = self.forward(x)
+            return p[0].to('cpu'), v[0].to('cpu')
+
 # fmt: on

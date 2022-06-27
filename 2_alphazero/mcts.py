@@ -6,7 +6,7 @@ import numpy as np
 
 class MCTS:
     def __init__(self, game: game.GoBang, c_puct=1, tau=1):
-        super.__init__(self)
+        # super.__init__(self)
         self.ps = {}
         # self.qsa = {}
         self.wsa = defaultdict(int)
@@ -16,40 +16,41 @@ class MCTS:
         self.tau = tau
         self.game = game
 
-    def search(self, state, net):
+    def search(self, state, net, level=0):
         sk = self.game.state2key(state)
         if self.ns[sk] == 0:
             self.ns[sk] = 1
-            self.ps[sk], v = net(state)
+            self.ps[sk], v = net.infer(state)
             return -v
 
         max_u, best_a = -float("inf"), -1
         for a in self.game.valid_positions(state):
-            qsa = self.wsa[(sk, *a)] / (self.nsa[(sk, *a)] + 1)
-            u = qsa + self.c_puct * self.ps[sk][a] * sqrt(self.ns[sk]) / (self.nsa[(sk, *a)] + 1)
+            qsa = self.wsa[(sk, a)] / (self.nsa[(sk, a)] + 1)
+            u = qsa + self.c_puct * self.ps[sk][a] * sqrt(self.ns[sk]) / (self.nsa[(sk, a)] + 1)
             if u > max_u:
                 max_u = u
                 best_a = a
         a = best_a
 
         state_next, iswin = self.game.next_state(state, a)
+        print(iswin, level, a // 15, a % 15, self.ps[sk][a], self.wsa[sk], self.nsa[(sk, a)], self.ns[sk])
         if iswin:
             v = 1
         else:
-            v = self.search(state_next, net)
+            v = self.search(state_next, net, level + 1)
 
-        # self.qsa[(sk, *a)] = (N[s][a] * Q[s][a] + v) / (N[s][a] + 1)
-        self.wsa[(sk, *a)] += v
-        self.nsa[(sk, *a)] += 1
+        # self.qsa[(sk, a)] = (N[s][a] * Q[s][a] + v) / (N[s][a] + 1)
+        self.wsa[(sk, a)] += v
+        self.nsa[(sk, a)] += 1
         self.ns[sk] += 1
         return -v
 
     def pi(self, state):
-        pi = np.zeros_like(state, dtype=np.float32)
+        pi = np.zeros_like(state, dtype=np.float32).flatten()
         sk = self.game.state2key(state)
-        for a in game.valid_positions(state):
-            pi[a] = (self.nsa[(sk, *a)] ** (1 / self.tau)) / (self.ns[sk] ** (1 / self.tau))
-        return pi.flatten()
+        for a in self.game.valid_positions(state):
+            pi[a] = (self.nsa[(sk, a)] ** (1 / self.tau)) / (self.ns[sk] ** (1 / self.tau))
+        return pi / pi.sum()
 
 
 if __name__ == "__main__":
