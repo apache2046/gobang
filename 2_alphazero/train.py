@@ -11,7 +11,7 @@ batchsize = 32
 opt = torch.optim.AdamW(params=nnet.parameters(), lr=1e-3)
 
 mse_loss = torch.nn.MSELoss()
-
+kl_loss = torch.nn.KLDivLoss()
 
 def train(samples):
     nnet.train()
@@ -30,7 +30,8 @@ def train(samples):
 
         pred_pis, pred_vs = nnet(states)
         print(pis.shape, pred_pis.shape, vs.shape, pred_vs.shape)
-        pi_loss = -torch.mean(pis.matmul(torch.log(pred_pis).transpose(0, 1)))
+        # pi_loss = -torch.mean(pis.matmul(torch.log(pred_pis).transpose(0, 1)))
+        pi_loss = kl_loss(pred_pis, pis)
         v_loss = mse_loss(pred_vs, vs)
         loss = pi_loss + v_loss
         opt.zero_grad()
@@ -40,7 +41,7 @@ def train(samples):
 
 def policyIterSP():
     samples = []
-    for i in range(4):
+    for i in range(8):
         samples.extend(executeEpisode())
     print('trainning...')
     train(samples)
@@ -54,14 +55,14 @@ def executeEpisode():
     while True:
         cnt += 1
         print('GHB', cnt)
-        for i in range(100):
+        for i in range(200):
             mcts.search(state, nnet)
         pi = mcts.pi(state)
         samples.append([state, pi, None])
         action = np.random.choice(len(pi), p=pi)
-        next_state, iswin = game.next_state(state, action)
-        if iswin:
-            v = 1
+        next_state, isend, reward = game.next_state(state, action)
+        if isend:
+            v = reward
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
                 v = -v
@@ -72,3 +73,5 @@ def executeEpisode():
 
 for i in range(100):
     policyIterSP()
+    torch.save(nnet.state_dict(), f'models/{i}.pt')
+    print("saved a pt file...")

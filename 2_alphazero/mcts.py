@@ -21,6 +21,7 @@ class MCTS:
         if self.ns[sk] == 0:
             self.ns[sk] = 1
             self.ps[sk], v = net.infer(state)
+            # print(self.ps[sk], v)
             # self.ps[sk] = np.ones(225) / 225
             # v = 0.01
             return -v
@@ -34,11 +35,14 @@ class MCTS:
                 best_a = a
         a = best_a
 
-        state_next, iswin = self.game.next_state(state, a)
+        if a == -1:
+            print(state, max_u, u)
+            raise Exception("aaaa")
+        state_next, isend, reward = self.game.next_state(state, a)
         # print(iswin, level, a // 15, a % 15, self.ps[sk][a], self.wsa[(sk, a)], self.nsa[(sk, a)], self.ns[sk])
-        print(iswin, level, a // 15, a % 15)
-        if iswin:
-            v = 1
+        print(isend, reward, level, a // 15, a % 15)
+        if isend:
+            v = reward
         else:
             v = self.search(state_next, net, level + 1)
 

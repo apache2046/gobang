@@ -84,14 +84,16 @@ class GoBang:
             state[:, :, 3] = -1
             state[y]
             win = self.have_five(state[:, :, 0], (x, y))
+            end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
             # win = False
-            return state, win
+            return state, end, win
         else:  # actor == -1
             state[y, x, 1] = 1
             state[:, :, 3] = 1
             win = self.have_five(state[:, :, 1], (x, y))
+            end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
             # win = False
-            return state, win
+            return state, end, win
 
     def valid_positions(self, state):
         # return state[:, :, 2] == 1
@@ -103,6 +105,7 @@ class GoBang:
         return ret
 
     def state2key(self, state):
+        # print("GGG", state)
         return bytes(state)
 
     def key2state(self, key):
