@@ -40,9 +40,10 @@ class MCTS:
             raise Exception("aaaa")
         state_next, isend, reward = self.game.next_state(state, a)
         # print(iswin, level, a // 15, a % 15, self.ps[sk][a], self.wsa[(sk, a)], self.nsa[(sk, a)], self.ns[sk])
-        print(isend, reward, level, a // 15, a % 15)
+        #print(isend, reward, level, a // 15, a % 15)
         if isend:
             v = reward
+            # print(reward, level, a // 15, a % 15, state_next)
         else:
             v = self.search(state_next, net, level + 1)
 

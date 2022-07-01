@@ -27,24 +27,24 @@ class Policy_Value(torch.nn.Module):
             ReLU(),
 
             #9x9
-            Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=0),
-            BatchNorm2d(512),
+            Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=0),
+            BatchNorm2d(256),
             ReLU(),
 
             #7x7
-            Conv2d(in_channels=512, out_channels=1024, kernel_size=3, stride=1, padding=0),
+            Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=0),
 
             #5x5
             Flatten()
         )
         self.policy_head = Sequential(
-            Linear(25 * 1024, 1024),
+            Linear(25 * 256, 1024),
             ReLU(),
             Linear(1024, 225),
-            Softmax()
+            Softmax(-1)
         )
         self.value_head = Sequential(
-            Linear(25 * 1024, 1024),
+            Linear(25 * 256, 1024),
             ReLU(),
             Linear(1024, 1)
         )
