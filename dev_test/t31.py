@@ -46,7 +46,7 @@ def main():
 
     time.sleep(1)
     wid = 0
-    for _ in range(100):
+    for _ in range(50):
         time.sleep(0.1)
         print("1", wid)
         child = mp.Process(target=net_worker, args=(wid,))
