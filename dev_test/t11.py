@@ -1,5 +1,5 @@
 from queue import Empty, Queue
-from model import Policy_Value
+# from model import Policy_Value
 from multiprocessing.connection import Listener, Connection
 import numpy as np
 import multiprocessing as mp

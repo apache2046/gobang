@@ -18,18 +18,24 @@ def infer_worker(task_q: mp.Queue, result_qlist: List[mp.Queue]):
     cnt = 0
     stime = time.time()
     shmdict = {}
+    local_result_qlist = {}
     while True:
         cnt += 1
         if cnt % 10000 == 0:
             print("complete", cnt, f"{time.time() - stime:.2f}")
             stime = time.time()
         wid, shmname = task_q.get()
+        if False:
+            result_q = result_qlist[wid]
+        else:
+            if (result_q := local_result_qlist.get(wid)) is None:
+                result_q = local_result_qlist[wid] = result_qlist[wid]
         # if (shm := shmdict.get(shmname)) is None:
         #     shm = shared_memory.SharedMemory(shmname)
         #     shmdict[shmname] = shm
         # task = np.ndarray((1024), dtype=np.float32, buffer=shm.buf)
         # result = task.mean()
-        result_qlist[wid].put(1)
+        result_q.put(1)
 
 
 def net_worker(wid: int, task_q: mp.Queue, result_q: mp.Queue):
@@ -41,6 +47,7 @@ def net_worker(wid: int, task_q: mp.Queue, result_q: mp.Queue):
         # task_q.put((wid, shm.name))
         task_q.put((wid, 1))
         result = result_q.get()
+        # time.sleep(0.001)
 
 
 def main():
