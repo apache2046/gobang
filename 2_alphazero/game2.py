@@ -1,5 +1,60 @@
 import numpy as np
-from numba import jit
+#from numba import jit
+
+#@jit(nopython=True)
+def have_five(arr, x, y):
+    # x, y
+    w = h = 15
+
+    cnt = 0  # -
+    for i in range(1, 5):
+        if x - i < 0 or arr[y][x - i] == 0:
+            break
+        cnt += 1
+    for i in range(0, 5):
+        if x + i == w or arr[y][x + i] == 0:
+            break
+        cnt += 1
+    if cnt >= 5:
+        return True
+
+    cnt = 0  # |
+    for i in range(1, 5):
+        if y - i < 0 or arr[y - i][x] == 0:
+            break
+        cnt += 1
+    for i in range(0, 5):
+        if y + i == h or arr[y + i][x] == 0:
+            break
+        cnt += 1
+    if cnt >= 5:
+        return True
+
+    cnt = 0  # \
+    for i in range(1, 5):
+        if x - i < 0 or y - i < 0 or arr[y - i][x - i] == 0:
+            break
+        cnt += 1
+    for i in range(0, 5):
+        if x + i == w or y + i == h or arr[y + i][x + i] == 0:
+            break
+        cnt += 1
+    if cnt >= 5:
+        return True
+
+    cnt = 0  # /
+    for i in range(1, 5):
+        if x - i < 0 or y + i == h or arr[y + i][x - i] == 0:
+            break
+        cnt += 1
+    for i in range(0, 5):
+        if x + i == w or y - i < 0 or arr[y - i][x + i] == 0:
+            break
+        cnt += 1
+    if cnt >= 5:
+        return True
+
+    return False
 
 class GoBang:
     def __init__(self, size=15):
@@ -83,14 +138,14 @@ class GoBang:
             state[y, x, 0] = 1
             state[:, :, 3] = -1
             state[y]
-            win = self.have_five(state[:, :, 0], (x, y))
+            win = have_five(state[:, :, 0], x, y)
             end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
             # win = False
             return state, end, int(win)
         else:  # actor == -1
             state[y, x, 1] = 1
             state[:, :, 3] = 1
-            win = self.have_five(state[:, :, 1], (x, y))
+            win = have_five(state[:, :, 1], x, y)
             end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
             # win = False
             return state, end, int(win)
