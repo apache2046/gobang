@@ -9,8 +9,8 @@ from model import Policy_Value
 import torch
 import ray
 
-# ray.init(address='auto', _node_ip_address='192.168.5.7')
-ray.init(address='ray://192.168.5.7:10001')
+ray.init(address='auto', _node_ip_address='192.168.5.6')
+# ray.init(address='ray://192.168.5.7:10001')
 
 # with Client(address, authkey=b'secret password') as conn:
 #     conn.send(np.arange(12, dtype=np.int8).reshape(3,4))
@@ -22,7 +22,7 @@ def executeEpisode(game, epid):
     state = game.start_state()
     samples = []
     cnt = 0
-    board_record = np.zeros((game.size, game.size), dtype=np.int)
+    board_record = np.zeros((game.size, game.size), dtype=np.int8)
     stime = time.time()
     while True:
         cnt += 1
@@ -42,9 +42,9 @@ def executeEpisode(game, epid):
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
                 v = -v
-            with open(f"{epid}.txt", "a") as f:
-                f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
-            return samples
+            # with open(f"{epid}.txt", "a") as f:
+            #     f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
+            return samples, board_record
         else:
             state = next_state
 
@@ -52,15 +52,15 @@ def executeEpisode(game, epid):
 def executeEpisodeEndless(epid):
     game = GoBang(size=15)
     while True:
-        trajectory = yield from executeEpisode(game, epid)
-        print(trajectory)
+        trajectory, board_record = yield from executeEpisode(game, epid)
+        print(f'{epid} got trajectory', board_record)
 
 
 @ray.remote
 def simbatch(infer_service):
     states = []
     g = []
-    for i in range(32):
+    for i in range(4):
         # np.random.seed(100+i)
 
         item = executeEpisodeEndless(i)
@@ -72,7 +72,11 @@ def simbatch(infer_service):
         prob, v = ray.get(infer_service.infer.remote(states))
         # print(prob, v)
         for i in range(len(g)):
-            states[i] = torch.tensor(g[i].send((prob[i], v[i])))
+            try:
+                states[i] = torch.tensor(g[i].send((prob[i], v[i])))
+            except StopIteration:
+                g[i] = executeEpisodeEndless(i)
+                states[i] = next(g[i])
 
 
 @ray.remote(num_cpus=1, num_gpus=1)
@@ -96,7 +100,7 @@ class Infer_srv:
 def main():
     infer_service = Infer_srv.remote()
     s = []
-    for i in range(48):
+    for i in range(4):
         s.append(simbatch.remote(infer_service))
     ray.wait(s)
     while True:
