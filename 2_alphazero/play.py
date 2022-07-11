@@ -17,7 +17,7 @@ from back_end import serv
 if __name__ == "__main__":
     board_state = BoardState()
     nnet = Policy_Value().to("cuda:0")
-    nnet.load_state_dict(torch.load("models/28.pt"))
+    nnet.load_state_dict(torch.load("models/12.pt"))
     nnet = nnet.to("cuda:0")
     game = GoBang()
     state = game.start_state()
@@ -64,15 +64,24 @@ def genmove(actor):
     global mcts
     global state
     # print(state)
-    for i in range(500):
-        mcts.search(state, nnet)
-    pi = mcts.pi(state)
-    print(pi)
-    action = np.random.choice(len(pi), p=pi)
+
+    # for i in range(500):
+    #     mcts.search(state, nnet)
+    # pi = mcts.pi(state)
+    # print(pi)
+    # action = np.random.choice(len(pi), p=pi)
+    # x = action % 15
+    # y = action // 15
+    # return play(actor, (x, y))
+
+    pi, v = nnet.infer(state)
+    a = game.valid_positions(state)
+    # pi[a] *= 1000
+    print(pi, v)
+    action = torch.argmax(pi).tolist()
     x = action % 15
     y = action // 15
     return play(actor, (x, y))
-
 
 if __name__ == "__main__":
     serv(8080, board_size, clearboard, play, genmove)

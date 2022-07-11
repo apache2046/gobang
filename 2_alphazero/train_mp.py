@@ -67,7 +67,7 @@ def train(samples, nnet, opt):
 
 
 def gather_and_train(nnet, sample_queue: mp.Queue, train_complete: mp.Condition, sample_complete: mp.Value):
-    opt = torch.optim.AdamW(params=nnet.parameters(), lr=1e-3)
+    opt = torch.optim.AdamW(params=nnet.parameters(), lr=1e-4)
     epoch = 0
     while True:
         epoch += 1
@@ -103,7 +103,7 @@ def executeEpisode(nnet):
     while True:
         cnt += 1
         # print("GHB", cnt)
-        for i in range(200):
+        for i in range(2000):
             mcts.search(state, nnet)
         pi = mcts.pi(state)
         samples.append([state, pi, None])
@@ -122,9 +122,11 @@ def executeEpisode(nnet):
 def getSample(rank, nnet, sample_queue: mp.Queue, train_complete: mp.Condition, sample_complete: mp.Value):
     np.random.seed(rank)
     while True:
-        for episode in range(20):
+        #for episode in range(20):
+        for episode in range(100):
             sample = executeEpisode(nnet)
             sample_queue.put(sample)
+            print('episode done', rank, episode)
 
         sample_complete.acquire()
         sample_complete.value += 1

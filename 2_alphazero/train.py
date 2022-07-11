@@ -29,10 +29,11 @@ def train(samples):
         vs = torch.stack(vs).to('cuda:0')
 
         pred_pis, pred_vs = nnet(states)
-        print(pis.shape, pred_pis.shape, vs.shape, pred_vs.shape)
+        # print(pis.shape, pred_pis.shape, vs.shape, pred_vs.shape)
         # pi_loss = -torch.mean(pis.matmul(torch.log(pred_pis).transpose(0, 1)))
         pi_loss = kl_loss(pred_pis, pis)
         v_loss = mse_loss(pred_vs, vs)
+        print(f"loss: {pi_loss.tolist():.03f}, {v_loss.tolist():.03f}")
         loss = pi_loss + v_loss
         opt.zero_grad()
         loss.backward()

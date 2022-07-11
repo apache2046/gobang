@@ -57,7 +57,8 @@ class Policy_Value(torch.nn.Module):
 
     def infer(self, x):
         self.eval()
-        x = torch.tensor(x, dtype=torch.float32).to('cuda:0')
+        # x = torch.tensor(x, dtype=torch.float32).to('cuda:0')
+        x = torch.tensor(x, dtype=torch.float32)
         x.unsqueeze_(0)
         x = x.permute(0, 3, 1, 2)
         with torch.no_grad():
