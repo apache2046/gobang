@@ -1,7 +1,7 @@
 import numpy as np
-#from numba import jit
+from numba import jit
 
-#@jit(nopython=True)
+@jit(nopython=True)
 def have_five(arr, x, y):
     # x, y
     w = h = 15

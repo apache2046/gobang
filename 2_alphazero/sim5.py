@@ -11,7 +11,9 @@ import ray
 import io
 import random
 from collections import deque
+import os
 
+os.environ["RAY_LOG_TO_STDERR"] = "1"
 ray.init(address="auto", _node_ip_address="192.168.5.6")
 # ray.init(address='ray://192.168.5.7:10001')
 
@@ -57,16 +59,17 @@ def executeEpisode(game, epid):
 def executeEpisodeEndless(epid, tainer):
     game = GoBang(size=15)
     while True:
+        print("executeEpisodeEndless1", epid)
         trajectory, board_record = yield from executeEpisode(game, epid)
         print(f"{epid} got trajectory", board_record)
-        tainer.push_samples(trajectory)
+        tainer.push_samples.remote(trajectory)
 
 
 @ray.remote
 def simbatch(infer_service, tainer):
     states = []
     g = []
-    for i in range(32):
+    for i in range(2):
         # np.random.seed(100+i)
 
         item = executeEpisodeEndless(i, tainer)
@@ -113,13 +116,14 @@ class Train_srv:
         self.nnet = Policy_Value().to("cuda:0")
         self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
         self.infer_serivce = infer_service
-        self.batchsize = 1024
+        self.batchsize = 16#1024
         self.mse_loss = torch.nn.MSELoss()
         self.kl_loss = torch.nn.KLDivLoss()
         self.samples = deque(maxlen=10000)
         self.sn = 0
 
     def _train(self):
+        print("Train11")
         opt = self.opt
         batch = random.choices(self.samples, k=self.batchsize)
         states = []
@@ -162,26 +166,30 @@ class Train_srv:
         opt.zero_grad()
         loss.backward()
         opt.step()
+        print("Train12")
 
     def push_samples(self, samples):
         self.samples.push(samples)
         self.sn += 1
-        if self.sn == 200:
+        if self.sn == 2:#200:
             self.sn = 0
             self.train()
 
     def train(self):
+        print("Train1")
         for i in range(50):
             self._train()
+        print("Train2")
         weight = self.nnet.state_dict()
         self.infer_service.load_weight.remote(weight)
+        print("Train3")
 
 
 def main():
     infer_service = Infer_srv.remote()
     tainer = Train_srv.remote(infer_service)
     s = []
-    for i in range(48):
+    for i in range(2):
         s.append(simbatch.remote(infer_service, tainer))
     ray.wait(s)
     while True:
