@@ -169,7 +169,7 @@ class Train_srv:
         print("Train12")
 
     def push_samples(self, samples):
-        self.samples.push(samples)
+        self.samples.extend(samples)
         self.sn += 1
         if self.sn == 2:#200:
             self.sn = 0
