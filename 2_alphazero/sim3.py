@@ -100,7 +100,7 @@ class Infer_srv:
 def main():
     infer_service = Infer_srv.remote()
     s = []
-    for i in range(4):
+    for i in range(40):
         s.append(simbatch.remote(infer_service))
     ray.wait(s)
     while True:

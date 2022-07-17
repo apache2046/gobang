@@ -1,6 +1,6 @@
 from multiprocessing.connection import Client
 import numpy as np
-from mcts2 import MCTS
+from mcts4 import MCTS
 from game import GoBang
 import multiprocessing as mp
 import time
@@ -11,9 +11,13 @@ import ray
 import io
 import random
 from collections import deque
+import os
+import socket
 
+print(socket.gethostname(), os.getcwd())
+os.environ["RAY_LOG_TO_STDERR"] = "1"
 ray.init(address="auto", _node_ip_address="192.168.5.6")
-# ray.init(address='ray://192.168.5.7:10001')
+#ray.init(address='ray://192.168.5.7:10001')
 
 # with Client(address, authkey=b'secret password') as conn:
 #     conn.send(np.arange(12, dtype=np.int8).reshape(3,4))
@@ -21,13 +25,14 @@ ray.init(address="auto", _node_ip_address="192.168.5.6")
 
 
 def executeEpisode(game, epid):
-    mcts = MCTS(game, c_puct=0.5)
+    # mcts = MCTS(game, c_puct=0.5)
     state = game.start_state()
     samples = []
     cnt = 0
     board_record = np.zeros((game.size, game.size), dtype=np.int8)
     stime = time.time()
     while True:
+        mcts = MCTS(game, c_puct=0.5)
         cnt += 1
         if epid == 0:
             print("GHB", cnt, f"{time.time()-stime: .2f}")
@@ -56,16 +61,17 @@ def executeEpisode(game, epid):
 def executeEpisodeEndless(epid, tainer):
     game = GoBang(size=15)
     while True:
+        print("executeEpisodeEndless1", epid)
         trajectory, board_record = yield from executeEpisode(game, epid)
         print(f"{epid} got trajectory", board_record)
-        tainer.push_samples(trajectory)
+        tainer.push_samples.remote(trajectory)
 
 
 @ray.remote(num_cpus=1)
 def simbatch(infer_service, tainer):
     states = []
     g = []
-    for i in range(32):
+    for i in range(256):
         # np.random.seed(100+i)
 
         item = executeEpisodeEndless(i, tainer)
@@ -111,14 +117,16 @@ class Train_srv:
     def __init__(self, infer_service):
         self.nnet = Policy_Value().to("cuda:0")
         self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
-        self.infer_serivce = infer_service
+        self.infer_service = infer_service
         self.batchsize = 1024
         self.mse_loss = torch.nn.MSELoss()
         self.kl_loss = torch.nn.KLDivLoss()
         self.samples = deque(maxlen=10000)
         self.sn = 0
+        self.epoch = 0
 
     def _train(self):
+        print("Train11")
         opt = self.opt
         batch = random.choices(self.samples, k=self.batchsize)
         states = []
@@ -132,7 +140,7 @@ class Train_srv:
             pi = torch.tensor(item[1], dtype=torch.float32).reshape(15, 15)
             v = torch.tensor(item[2], dtype=torch.float32)
             if cnt > 0:
-                print("tsample", s, pi, v)
+                # print("tsample", s, pi, v)
                 cnt -= 1
             r = random.choice([-1, 0, 1, 2])
             torch.rot90(s, r)
@@ -161,26 +169,34 @@ class Train_srv:
         opt.zero_grad()
         loss.backward()
         opt.step()
+        print("Train12")
 
     def push_samples(self, samples):
-        self.samples.push(samples)
+        self.samples.extend(samples)
         self.sn += 1
         if self.sn == 200:
             self.sn = 0
             self.train()
 
     def train(self):
+        print("Train1")
         for i in range(50):
             self._train()
+        print("Train2")
+        time.sleep(4)
+        torch.save(self.nnet.state_dict(), f"models/{self.epoch}.pt")
+        print(f"saved {self.epoch}.pt file...")
         weight = self.nnet.state_dict()
         self.infer_service.load_weight.remote(weight)
+        print("Train3")
+        self.epoch += 1
 
 
 def main():
     infer_service = Infer_srv.remote()
     tainer = Train_srv.remote(infer_service)
     s = []
-    for i in range(60):
+    for i in range(58):
         s.append(simbatch.remote(infer_service, tainer))
     ray.wait(s)
     while True:

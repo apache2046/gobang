@@ -12,10 +12,12 @@ import io
 import random
 from collections import deque
 import os
+import socket
 
+print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
 ray.init(address="auto", _node_ip_address="192.168.5.6")
-# ray.init(address='ray://192.168.5.7:10001')
+#ray.init(address='ray://192.168.5.7:10001')
 
 # with Client(address, authkey=b'secret password') as conn:
 #     conn.send(np.arange(12, dtype=np.int8).reshape(3,4))
@@ -65,7 +67,7 @@ def executeEpisodeEndless(epid, tainer):
         tainer.push_samples.remote(trajectory)
 
 
-@ray.remote
+@ray.remote(num_cpus=1)
 def simbatch(infer_service, tainer):
     states = []
     g = []
@@ -115,12 +117,13 @@ class Train_srv:
     def __init__(self, infer_service):
         self.nnet = Policy_Value().to("cuda:0")
         self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
-        self.infer_serivce = infer_service
+        self.infer_service = infer_service
         self.batchsize = 16#1024
         self.mse_loss = torch.nn.MSELoss()
         self.kl_loss = torch.nn.KLDivLoss()
         self.samples = deque(maxlen=10000)
         self.sn = 0
+        self.epoch = 0
 
     def _train(self):
         print("Train11")
@@ -180,16 +183,20 @@ class Train_srv:
         for i in range(50):
             self._train()
         print("Train2")
+        time.sleep(4)
+        torch.save(self.nnet.state_dict(), f"models/{self.epoch}.pt")
+        print(f"saved {self.epoch}.pt file...")
         weight = self.nnet.state_dict()
         self.infer_service.load_weight.remote(weight)
         print("Train3")
+        self.epoch += 1
 
 
 def main():
     infer_service = Infer_srv.remote()
     tainer = Train_srv.remote(infer_service)
     s = []
-    for i in range(2):
+    for i in range(58):
         s.append(simbatch.remote(infer_service, tainer))
     ray.wait(s)
     while True:
