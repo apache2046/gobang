@@ -5,7 +5,7 @@ from game import GoBang
 import multiprocessing as mp
 import time
 import pickle
-from model import Policy_Value
+from model2 import Policy_Value
 import torch
 import ray
 import io
@@ -164,9 +164,10 @@ class Train_srv:
 
         self.nnet.train()
         pred_pis, pred_vs = self.nnet(states)
-        pi_loss = -torch.mean(
-            pis.matmul(torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9).transpose(0, 1)))
-        )
+        #pi_loss = -torch.mean(
+        #    pis.matmul(torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9).transpose(0, 1)))
+        #)
+        pi_loss = -torch.mean((pis * torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9))).sum(1))
         v_loss = self.mse_loss(pred_vs, vs)
         print(f"loss: {pi_loss.tolist():.03f}, {v_loss.tolist():.03f}")
         loss = pi_loss + v_loss

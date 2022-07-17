@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Linear, Conv2d, BatchNorm2d, ReLU, Softmax, Sequential, Flatten
+from torch.nn import Linear, Conv2d, BatchNorm2d, ReLU, Softmax, Sequential, Flatten, Tanh
 
 # fmt: off
 class Policy_Value(torch.nn.Module):
@@ -46,7 +46,8 @@ class Policy_Value(torch.nn.Module):
         self.value_head = Sequential(
             Linear(25 * 256, 1024),
             ReLU(),
-            Linear(1024, 1)
+            Linear(1024, 1),
+            Tanh()
         )
 
     def forward(self, x):
