@@ -19,12 +19,23 @@ class MCTS:
 
     def search(self, state, level=0):
         sk = self.game.state2key(state)
+        # print("G1", level)
         if self.ns[sk] == 0:
+            # print("G2", level)
             self.ns[sk] = 1
 
             p, v = yield state
+            # print("G2.1", level)
             w = self.game.size
             self.ps[sk] = p.reshape((w, w)).astype(np.float64)
+            if level == 0:
+                # print("G3", level)
+                vps = state[:, :, 0] + state[:, :, 1] == 0
+                vps_cnt = np.count_nonzero(vps)
+                alpha = (w * w) / vps_cnt * 0.03
+                noise = np.random.dirichlet(alpha * np.ones(vps_cnt))
+                self.ps[sk][vps] = 0.75 * self.ps[sk][vps] + 0.25 * noise
+            # print("G4", level)
             self.wsa[sk] = np.zeros_like(self.ps[sk]).astype(np.float64)
             self.nsa[sk] = np.zeros_like(self.ps[sk]).astype(np.float64)
             #print('XXXX',self.nsa[sk].dtype)

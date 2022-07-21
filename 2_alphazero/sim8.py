@@ -36,15 +36,21 @@ def executeEpisode(game, epid):
         mcts = MCTS(game, c_puct=0.5)
         cnt += 1
         if cnt > 2:
-            #tau = max(0.05, tau * 0.85)
+            # tau = max(0.05, tau * 0.85)
             tau = max(0.05, tau * 0.9)
         if epid == 0:
-            print("GHB", cnt,  f"tau:{tau:.2f}, {time.time()-stime: .2f}")
+            print("GHB", cnt, f"tau:{tau:.2f}, {time.time()-stime: .2f}")
         stime = time.time()
         for i in range(2000):
             yield from mcts.search(state)
         pi = mcts.pi(state, tau)
         samples.append([state, pi, None])
+        # pi = 0.75 * pi + 0.25 * np.random.dirichlet(0.03 * np.ones(len(pi)))
+        valid_positions_cnt = np.count_nonzero(pi)
+        eta = np.random.dirichlet(0.03 * np.ones(valid_positions_cnt))
+        pi = 0.75 * pi
+        pi[pi>0] += 0.25 * eta
+        pi = pi / pi.sum()
         action = np.random.choice(len(pi), p=pi)
         next_state, isend, reward = game.next_state(state, action)
         y = action // game.size
@@ -54,7 +60,7 @@ def executeEpisode(game, epid):
             v = reward
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
-                v = -v
+                v = -v * 0.8
             # with open(f"{epid}.txt", "a") as f:
             #     f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
             return samples, board_record
@@ -168,10 +174,12 @@ class Train_srv:
 
         self.nnet.train()
         pred_pis, pred_vs = self.nnet(states)
-        #pi_loss = -torch.mean(
+        # pi_loss = -torch.mean(
         #    pis.matmul(torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9).transpose(0, 1)))
-        #)
-        pi_loss = -torch.mean((pis * torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9))).sum(1))
+        # )
+        pi_loss = -torch.mean(
+            (pis * torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9))).sum(1)
+        )
         v_loss = self.mse_loss(pred_vs, vs)
         print(f"loss: {pi_loss.tolist():.03f}, {v_loss.tolist():.03f}")
         loss = pi_loss + v_loss

@@ -1,6 +1,6 @@
 from multiprocessing.connection import Client
 import numpy as np
-from mcts4 import MCTS
+from mcts5 import MCTS
 from game import GoBang
 import multiprocessing as mp
 import time
@@ -13,10 +13,12 @@ import random
 from collections import deque
 import os
 import socket
+import traceback
 
 print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
 ray.init(address="auto", _node_ip_address="192.168.5.6")
+# ray.init(address="auto")
 # ray.init(address='ray://192.168.5.7:10001')
 
 # with Client(address, authkey=b'secret password') as conn:
@@ -33,13 +35,13 @@ def executeEpisode(game, epid):
     stime = time.time()
     tau = 0.8
     while True:
-        mcts = MCTS(game, c_puct=0.5)
+        mcts = MCTS(game, c_puct=5)
         cnt += 1
         if cnt > 2:
-            #tau = max(0.05, tau * 0.85)
+            # tau = max(0.05, tau * 0.85)
             tau = max(0.05, tau * 0.9)
         if epid == 0:
-            print("GHB", cnt,  f"tau:{tau:.2f}, {time.time()-stime: .2f}")
+            print("GHB", cnt, f"tau:{tau:.2f}, {time.time()-stime: .2f}")
         stime = time.time()
         for i in range(2000):
             yield from mcts.search(state)
@@ -54,13 +56,13 @@ def executeEpisode(game, epid):
             v = reward
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
-                v = -v
+                v = -v * 0.8
             # with open(f"{epid}.txt", "a") as f:
             #     f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
             return samples, board_record
         else:
             state = next_state
-
+     
 
 def executeEpisodeEndless(epid, tainer):
     game = GoBang(size=15)
@@ -73,25 +75,29 @@ def executeEpisodeEndless(epid, tainer):
 
 @ray.remote(num_cpus=1)
 def simbatch(infer_service, tainer):
-    states = []
-    g = []
-    for i in range(128):
-        # np.random.seed(100+i)
+    try: 
+        states = []
+        g = []
+        print("GHB in simbatch")
+        for i in range(128):
+            # np.random.seed(100+i)
 
-        item = executeEpisodeEndless(i, tainer)
-        g.append(item)
-        states.append(torch.tensor(next(item)))
+            item = executeEpisodeEndless(i, tainer)
+            g.append(item)
+            states.append(torch.tensor(next(item)))
 
-    while True:
-        # print('before remote1')
-        prob, v = ray.get(infer_service.infer.remote(states))
-        # print(prob, v)
-        for i in range(len(g)):
-            # try:
-            states[i] = torch.tensor(g[i].send((prob[i], v[i])))
-            # except StopIteration:
-            #     g[i] = executeEpisodeEndless(i, tainer)
-            #     states[i] = next(g[i])
+        while True:
+            # print('before remote1')
+            prob, v = ray.get(infer_service.infer.remote(states))
+            # print(prob, v)
+            for i in range(len(g)):
+                # try:
+                states[i] = torch.tensor(g[i].send((prob[i], v[i])))
+                # except StopIteration:
+                #     g[i] = executeEpisodeEndless(i, tainer)
+                #     states[i] = next(g[i])
+    except Exception:
+        print(traceback.format_exc())
 
 
 @ray.remote(num_cpus=0.1, num_gpus=0.1)
@@ -101,21 +107,26 @@ class Infer_srv:
         self.nnet.eval()
 
     def infer(self, data):
-        # print('in infer1', torch.cuda.is_available())
-        input_tensor = (
-            torch.stack(data).permute(0, 3, 1, 2).to("cuda:0").to(torch.float16)
-        )
-        # print('in infer2')
-        with torch.no_grad():
-            prob, v = self.nnet(input_tensor)
-            prob = prob.cpu().numpy()
-            v = v.cpu()
-
+        try:
+            # print('in infer1', torch.cuda.is_available())
+            input_tensor = (
+                torch.stack(data).permute(0, 3, 1, 2).to("cuda:0").to(torch.float16)
+            )
+            # print('in infer2')
+            with torch.no_grad():
+                prob, v = self.nnet(input_tensor)
+                prob = prob.cpu().numpy()
+                v = v.cpu()
+        except Exception:
+            print(traceback.format_exc())
         return prob, v
 
     def load_weight(self, weight):
         # weight = ray.get(weight)
-        self.nnet.load_state_dict(weight)
+        try:
+            self.nnet.load_state_dict(weight)
+        except Exception:
+            print(traceback.format_exc())
 
 
 @ray.remote(num_cpus=0.1, num_gpus=0.2)
@@ -168,10 +179,12 @@ class Train_srv:
 
         self.nnet.train()
         pred_pis, pred_vs = self.nnet(states)
-        #pi_loss = -torch.mean(
+        # pi_loss = -torch.mean(
         #    pis.matmul(torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9).transpose(0, 1)))
-        #)
-        pi_loss = -torch.mean((pis * torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9))).sum(1))
+        # )
+        pi_loss = -torch.mean(
+            (pis * torch.log(torch.clip(pred_pis, 1e-9, 1 - 1e-9))).sum(1)
+        )
         v_loss = self.mse_loss(pred_vs, vs)
         print(f"loss: {pi_loss.tolist():.03f}, {v_loss.tolist():.03f}")
         loss = pi_loss + v_loss
@@ -181,11 +194,14 @@ class Train_srv:
         print("Train12")
 
     def push_samples(self, samples):
-        self.samples.extend(samples)
-        self.sn += 1
-        if self.sn == 200:
-            self.sn = 0
-            self.train()
+        try:
+            self.samples.extend(samples)
+            self.sn += 1
+            if self.sn == 200:
+                self.sn = 0
+                self.train()
+        except Exception:
+            print(traceback.format_exc())
 
     def train(self):
         print("Train1")
@@ -202,13 +218,19 @@ class Train_srv:
         self.epoch += 1
 
 
+
 def main():
-    infer_services = [Infer_srv.remote() for _ in range(5)]
+    print("GHB1")
+    infer_services = [Infer_srv.remote() for _ in range(4)]
+    print("GHB2")
     tainer = Train_srv.remote(infer_services)
+    print("GHB3")
     s = []
     for i in range(32):
-        s.append(simbatch.remote(infer_services[i % 5], tainer))
+        s.append(simbatch.remote(infer_services[i % 4], tainer))
+    print("GHB4")
     ray.wait(s)
+    print("GHB5")
     while True:
         time.sleep(1)
 

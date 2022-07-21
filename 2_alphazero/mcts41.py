@@ -17,17 +17,17 @@ class MCTS:
         self.tau = tau
         self.game = game
 
-    def search(self, state, level=0):
+    def search(self, state, net, level=0):
         sk = self.game.state2key(state)
         if self.ns[sk] == 0:
             self.ns[sk] = 1
 
-            p, v = yield state
+            # p, v = yield state
+            p, v = net.infer(state)
             w = self.game.size
-            self.ps[sk] = p.reshape((w, w)).astype(np.float64)
-            self.wsa[sk] = np.zeros_like(self.ps[sk]).astype(np.float64)
-            self.nsa[sk] = np.zeros_like(self.ps[sk]).astype(np.float64)
-            #print('XXXX',self.nsa[sk].dtype)
+            self.ps[sk] = p.reshape((w, w))
+            self.wsa[sk] = np.zeros_like(self.ps[sk])
+            self.nsa[sk] = np.zeros_like(self.ps[sk])
 
             # print(self.ps[sk], v)
             # self.ps[sk] = np.ones(225) / 225
@@ -55,11 +55,10 @@ class MCTS:
         # print(iswin, level, a // 15, a % 15, self.ps[sk][a], self.wsa[(sk, a)], self.nsa[(sk, a)], self.ns[sk])
         #print(isend, reward, level, a // 15, a % 15)
         if isend:
-            #v = reward * 100
-            v = reward
+            v = reward * 100
             # print(reward, level, a // 15, a % 15, state_next)
         else:
-            v = yield from self.search(state_next, level + 1)
+            v = self.search(state_next, net, level + 1)
 
         # self.qsa[(sk, a)] = (N[s][a] * Q[s][a] + v) / (N[s][a] + 1)
         y = a // 15
@@ -69,16 +68,14 @@ class MCTS:
         self.ns[sk] += 1
         return -v
 
-    def pi(self, state, tau=1.0):
+    def pi(self, state):
         pi = np.zeros_like(state[:, :, 0], dtype=np.float32).flatten()
         sk = self.game.state2key(state)
         # for a in self.game.valid_positions(state):
         #     pi[a] = (self.nsa[sk, a)] ** (1 / self.tau)) / (self.ns[sk] ** (1 / self.tau))
         # return pi / pi.sum()
         invalid_pos = (state[:, :, 0] + state[:, :, 1] > 0)
-        # pi = (self.nsa[sk] ** (1 / tau)) / (self.ns[sk] ** (1 / tau))
-        # pi = (self.nsa[sk] / self.ns[sk]) ** (1 / tau)
-        pi = self.nsa[sk] ** (1 / tau)
+        pi = (self.nsa[sk] ** (1 / self.tau)) / (self.ns[sk] ** (1 / self.tau))
         pi[invalid_pos] = 0
         pi = pi / pi.sum()
         return pi.reshape((225,))
