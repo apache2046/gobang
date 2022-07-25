@@ -1,11 +1,11 @@
 from multiprocessing.connection import Client
 import numpy as np
 from mcts5 import MCTS
-from game import GoBang
+from game2 import GoBang
 import multiprocessing as mp
 import time
 import pickle
-from model2 import Policy_Value
+from model4 import Policy_Value
 import torch
 import ray
 import io
@@ -17,7 +17,7 @@ import traceback
 
 print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
-ray.init(address="auto", _node_ip_address="192.168.5.106")
+ray.init(address="auto", _node_ip_address="192.168.5.6")
 # ray.init(address="auto")
 # ray.init(address='ray://192.168.5.7:10001')
 
@@ -56,9 +56,7 @@ def executeEpisode(game, epid):
             v = reward
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
-                v = -v * 0.8
-            # with open(f"{epid}.txt", "a") as f:
-            #     f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
+                v = -v
             return samples, board_record
         else:
             state = next_state
@@ -69,7 +67,7 @@ def executeEpisodeEndless(epid, tainer):
     while True:
         print("executeEpisodeEndless1", epid)
         trajectory, board_record = yield from executeEpisode(game, epid)
-        print(f"{epid} got trajectory", "\n", board_record)
+        print(f"{epid} got trajectory", "\n", board_record, "\n", trajectory[-1][2], trajectory[-2][2], trajectory[-3][2] , trajectory[-4][2])
         tainer.push_samples.remote(trajectory)
 
 
@@ -138,7 +136,7 @@ class Train_srv:
         self.batchsize = 1024
         self.mse_loss = torch.nn.MSELoss()
         self.kl_loss = torch.nn.KLDivLoss()
-        self.samples = deque(maxlen=10000)
+        self.samples = deque(maxlen=50000)
         self.sn = 0
         self.epoch = 0
 
@@ -205,7 +203,7 @@ class Train_srv:
 
     def train(self):
         print("Train1")
-        for i in range(50):
+        for i in range(70):
             self._train()
         print("Train2")
         time.sleep(4)

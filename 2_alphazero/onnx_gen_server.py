@@ -1,0 +1,36 @@
+# Should run in pytorch 1.2
+import torch
+from multiprocessing.connection import Listener
+import model4 
+from io import BytesIO
+
+address = ('0.0.0.0', 6000)     # family is deduced to be 'AF_INET'
+model = model4.Policy_Value()
+
+with Listener(address, authkey=b'secret password123') as listener:
+    while True:
+        with listener.accept() as conn:
+            print('connection accepted from', listener.last_accepted)
+            state_bytes = conn.recv()
+            print(type(state_bytes), len(state_bytes))
+            batch_size = conn.recv()
+            state_dict = torch.load(BytesIO(state_bytes))
+            model.load_state_dict(state_dict)
+            dummy_input = torch.randn(batch_size, 5, 15, 15)
+            f = BytesIO()
+            torch.onnx.export(
+                model,
+                dummy_input,
+                f,
+                export_params=True,  # store the trained parameter weights inside the model file
+                # do_constant_folding=False,
+                # training=2,
+                #operator_export_type=torch.onnx.OperatorExportTypes.ONNX_FALLTHROUGH,
+                # verbose=True,
+                opset_version=9,
+                #keep_initializers_as_inputs=False,
+                # export_modules_as_functions=True,
+                input_names=["input"],
+                output_names=["prob", "v"]
+            )
+            conn.send(f.getvalue())

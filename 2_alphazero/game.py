@@ -137,7 +137,6 @@ class GoBang:
         if actor == 1:
             state[y, x, 0] = 1
             state[:, :, 3] = -1
-            state[y]
             win = have_five(state[:, :, 0], x, y)
             end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
             # win = False

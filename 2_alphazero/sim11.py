@@ -1,11 +1,11 @@
 from multiprocessing.connection import Client
 import numpy as np
 from mcts5 import MCTS
-from game import GoBang
+from game2 import GoBang
 import multiprocessing as mp
 import time
 import pickle
-from model2 import Policy_Value
+from model4 import Policy_Value
 import torch
 import ray
 import io
@@ -14,10 +14,14 @@ from collections import deque
 import os
 import socket
 import traceback
+import trtcommon
+import tensorrt as trt
+import pycuda.autoinit
+import pycuda.driver as cuda
 
 print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
-ray.init(address="auto", _node_ip_address="192.168.5.106")
+ray.init(address="auto", _node_ip_address="192.168.5.6")
 # ray.init(address="auto")
 # ray.init(address='ray://192.168.5.7:10001')
 
@@ -56,26 +60,33 @@ def executeEpisode(game, epid):
             v = reward
             for j in reversed(range(len(samples))):
                 samples[j][2] = v
-                v = -v * 0.8
-            # with open(f"{epid}.txt", "a") as f:
-            #     f.write(str(board_record) + " " + str(cnt) + " " + str(reward) + "\n\n")
+                v = -v
             return samples, board_record
         else:
             state = next_state
-     
+
 
 def executeEpisodeEndless(epid, tainer):
     game = GoBang(size=15)
     while True:
         print("executeEpisodeEndless1", epid)
         trajectory, board_record = yield from executeEpisode(game, epid)
-        print(f"{epid} got trajectory", "\n", board_record)
+        print(
+            f"{epid} got trajectory",
+            "\n",
+            board_record,
+            "\n",
+            trajectory[-1][2],
+            trajectory[-2][2],
+            trajectory[-3][2],
+            trajectory[-4][2],
+        )
         tainer.push_samples.remote(trajectory)
 
 
 @ray.remote(num_cpus=1)
 def simbatch(infer_service, tainer):
-    try: 
+    try:
         states = []
         g = []
         print("GHB in simbatch")
@@ -102,24 +113,75 @@ def simbatch(infer_service, tainer):
 
 @ray.remote(num_cpus=0.1, num_gpus=0.1)
 class Infer_srv:
-    def __init__(self):
-        self.nnet = Policy_Value().to("cuda:0").half()
-        self.nnet.eval()
+    def __init__(self, model_file):
+        # self.nnet = Policy_Value().to("cuda:0").half()
+        # self.nnet.eval()
+        self.load_onnx(model_file)
 
-    def infer(self, data):
+    def load_onnx(self, model_file):
         try:
-            # print('in infer1', torch.cuda.is_available())
-            input_tensor = (
-                torch.stack(data).permute(0, 3, 1, 2).to("cuda:0").to(torch.float16)
-            )
-            # print('in infer2')
-            with torch.no_grad():
-                prob, v = self.nnet(input_tensor)
-                prob = prob.cpu().numpy()
-                v = v.cpu()
+            TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+            builder = trt.Builder(TRT_LOGGER)
+            network = builder.create_network(trtcommon.EXPLICIT_BATCH)
+            config = builder.create_builder_config()
+            parser = trt.OnnxParser(network, TRT_LOGGER)
+
+            config.max_workspace_size = trtcommon.GiB(1)
+            # Load the Onnx model and parse it in order to populate the TensorRT network.
+            with open(model_file, "rb") as model:
+                if not parser.parse(model.read()):
+                    print("ERROR: Failed to parse the ONNX file.")
+                    for error in range(parser.num_errors):
+                        print(parser.get_error(error))
+                    return None
+                engine = builder.build_engine(network, config)
+
+            self.bindings = []
+
+            for binding in engine:
+                size = (
+                    trt.volume(engine.get_binding_shape(binding))
+                    * engine.max_batch_size
+                )
+                dtype = trt.nptype(engine.get_binding_dtype(binding))
+                # Allocate host and device buffers
+                # host_mem = cuda.pagelocked_empty(size, dtype)
+                device_mem = cuda.mem_alloc(size * 4)
+                # Append the device buffer to device bindings.
+                self.bindings.append(int(device_mem))
+
+                # Append to the appropriate list.
+                if engine.binding_is_input(binding):
+                    print("inputmem")
+                else:
+                    print("outputmem")
+
+            self.engin = engine
+            self.context = engine.create_execution_context()
+            self.stream = cuda.Stream()
         except Exception:
             print(traceback.format_exc())
-        return prob, v
+
+    def infer(self, inputdata):
+        try:
+            inputdata = np.stack(inputdata).transpose([0, 3, 1, 2]).astype(np.float32).ravel()
+            bs = input.shape[0]
+            output1 = np.empty((bs, 15*15), np.float32)
+            output2 = np.empty((bs, 1), np.float32)
+            cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
+            # Run inference.
+            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+            # Transfer predictions back from the GPU.
+            cuda.memcpy_dtoh_async(output1, self.bindings[1], self.stream)
+            cuda.memcpy_dtoh_async(output2, self.bindings[2], self.stream)
+            # Synchronize the stream
+            self.stream.synchronize()
+            prob = output1
+            v = output2
+             
+            return prob, v
+        except Exception:
+            print(traceback.format_exc())
 
     def load_weight(self, weight):
         # weight = ray.get(weight)
@@ -138,7 +200,7 @@ class Train_srv:
         self.batchsize = 1024
         self.mse_loss = torch.nn.MSELoss()
         self.kl_loss = torch.nn.KLDivLoss()
-        self.samples = deque(maxlen=10000)
+        self.samples = deque(maxlen=50000)
         self.sn = 0
         self.epoch = 0
 
@@ -205,7 +267,7 @@ class Train_srv:
 
     def train(self):
         print("Train1")
-        for i in range(50):
+        for i in range(70):
             self._train()
         print("Train2")
         time.sleep(4)
@@ -216,7 +278,6 @@ class Train_srv:
             item.load_weight.remote(weight)
         print("Train3")
         self.epoch += 1
-
 
 
 def main():

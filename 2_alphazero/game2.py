@@ -65,9 +65,8 @@ class GoBang:
         size = self.size
 
         # 3 panles, black 0, white 1, empty 2, whois next 3 (1 for balck, -1 for white)
-        state = np.zeros((size, size, 4), dtype=np.int8)
-        state[:, :, 2] = 1  # all empty
-        state[:, :, 3] = 1  # next is black
+        state = np.zeros((size, size, 5), dtype=np.int8)
+        state[:, :, 4] = 1  # next is black
         return state
     # @jit(forceobj=True)
     def have_five(self, arr, pos):
@@ -131,33 +130,21 @@ class GoBang:
         state = state.copy()
         y = pos // self.size
         x = pos % self.size
-
-        state[y, x, 2] = 0
-        actor = state[0, 0, 3]
+        
+        state[:, :, 2] = state[:, :, 0]
+        state[:, :, 3] = state[:, :, 1]
+        actor = state[0, 0, 4]
         if actor == 1:
             state[y, x, 0] = 1
-            state[:, :, 3] = -1
-            state[y]
+            state[:, :, 4] = 0
             win = have_five(state[:, :, 0], x, y)
-            end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
-            # win = False
-            return state, end, int(win)
-        else:  # actor == -1
+        else:  # actor == 0
             state[y, x, 1] = 1
-            state[:, :, 3] = 1
+            state[:, :, 4] = 1
             win = have_five(state[:, :, 1], x, y)
-            end = True if win or np.count_nonzero(state[:, :, 2]) < 20 else False
-            # win = False
-            return state, end, int(win)
 
-    def valid_positions(self, state: np.ndarray):
-        # return state[:, :, 2] == 1
-        p = np.transpose(np.where(state[:, :, 2] == 1))
-        ret = [y * self.size + x for y, x in p]
-        # ret = []
-        # for y, x in p:
-        #     ret.append(y * self.size + x)
-        return ret
+        end = True if win or np.count_nonzero(state[:, :, 0] + state[:, :, 1] == 0) < 20 else False
+        return state, end, int(win)
 
     def state2key(self, state):
         # print("GGG", state)
