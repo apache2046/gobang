@@ -16,7 +16,7 @@ with Listener(address, authkey=b'secret password123') as listener:
             batch_size = conn.recv()
             state_dict = torch.load(BytesIO(state_bytes))
             model.load_state_dict(state_dict)
-            dummy_input = torch.randn(batch_size, 5, 15, 15)
+            dummy_input = torch.randn(batch_size, 5, 15, 15).to(torch.float32)
             f = BytesIO()
             torch.onnx.export(
                 model,
@@ -33,4 +33,5 @@ with Listener(address, authkey=b'secret password123') as listener:
                 input_names=["input"],
                 output_names=["prob", "v"]
             )
+            print('done', len(f.getvalue()))
             conn.send(f.getvalue())

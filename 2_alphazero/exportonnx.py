@@ -5,7 +5,7 @@ from io import BytesIO
 f = BytesIO()
 model = model4.Policy_Value()
 print(model)
-dummy_input = torch.randn(256, 5, 15, 15)
+dummy_input = torch.randn(128, 5, 15, 15)
 torch.onnx.export(
     model,
     dummy_input,
