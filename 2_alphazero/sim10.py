@@ -17,7 +17,7 @@ import traceback
 
 print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
-ray.init(address="auto", _node_ip_address="192.168.5.6")
+ray.init(address="auto", _node_ip_address="192.168.5.106")
 # ray.init(address="auto")
 # ray.init(address='ray://192.168.5.7:10001')
 

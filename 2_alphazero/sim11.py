@@ -18,10 +18,12 @@ import trtcommon
 import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
+from multiprocessing.connection import Client
+from io import BytesIO
 
 print(socket.gethostname(), os.getcwd())
 os.environ["RAY_LOG_TO_STDERR"] = "1"
-ray.init(address="auto", _node_ip_address="192.168.5.6")
+ray.init(address="auto", _node_ip_address="192.168.5.106")
 # ray.init(address="auto")
 # ray.init(address='ray://192.168.5.7:10001')
 
@@ -95,15 +97,15 @@ def simbatch(infer_service, tainer):
 
             item = executeEpisodeEndless(i, tainer)
             g.append(item)
-            states.append(torch.tensor(next(item)))
+            states.append(next(item))
 
         while True:
             # print('before remote1')
-            prob, v = ray.get(infer_service.infer.remote(states))
+            prob, v = ray.get(infer_service.infer.remote(inputdata=states))
             # print(prob, v)
             for i in range(len(g)):
                 # try:
-                states[i] = torch.tensor(g[i].send((prob[i], v[i])))
+                states[i] = g[i].send((prob[i], v[i]))
                 # except StopIteration:
                 #     g[i] = executeEpisodeEndless(i, tainer)
                 #     states[i] = next(g[i])
@@ -113,28 +115,53 @@ def simbatch(infer_service, tainer):
 
 @ray.remote(num_cpus=0.1, num_gpus=0.1)
 class Infer_srv:
-    def __init__(self, model_file):
-        # self.nnet = Policy_Value().to("cuda:0").half()
-        # self.nnet.eval()
-        self.load_onnx(model_file)
+    def __init__(self):
+        self.abc = 123
+        pass
 
-    def load_onnx(self, model_file):
+    def infer(self, inputdata:None):
         try:
+            # print("infer", type(inputdata))
+            bs = len(inputdata)
+            inputdata = np.stack(inputdata).transpose([0, 3, 1, 2]).astype(np.float32).ravel()
+            output1 = np.empty((bs, 15*15), np.float32)
+            output2 = np.empty((bs, 1), np.float32)
+
+            cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
+            # Run inference.
+            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+            # Transfer predictions back from the GPU.
+            cuda.memcpy_dtoh_async(output1, int(self.bindings[1]), self.stream)
+            cuda.memcpy_dtoh_async(output2, int(self.bindings[2]), self.stream)
+            # Synchronize the stream
+            self.stream.synchronize()
+            
+            prob = output1
+            v = output2
+        except Exception:
+            print(traceback.format_exc())
+        
+        return prob, v
+
+    def load_onnx(self, model_bytes):
+        try:
+            print("G1 in load_onnx")
             TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
             builder = trt.Builder(TRT_LOGGER)
             network = builder.create_network(trtcommon.EXPLICIT_BATCH)
             config = builder.create_builder_config()
+            config.set_flag(trt.BuilderFlag.FP16)
             parser = trt.OnnxParser(network, TRT_LOGGER)
 
             config.max_workspace_size = trtcommon.GiB(1)
             # Load the Onnx model and parse it in order to populate the TensorRT network.
-            with open(model_file, "rb") as model:
-                if not parser.parse(model.read()):
-                    print("ERROR: Failed to parse the ONNX file.")
-                    for error in range(parser.num_errors):
-                        print(parser.get_error(error))
-                    return None
-                engine = builder.build_engine(network, config)
+            # with open(model_file, "rb") as model:
+            if not parser.parse(model_bytes):
+                print("ERROR: Failed to parse the ONNX file.")
+                for error in range(parser.num_errors):
+                    print(parser.get_error(error))
+                return None
+            engine = builder.build_engine(network, config)
 
             self.bindings = []
 
@@ -148,61 +175,59 @@ class Infer_srv:
                 # host_mem = cuda.pagelocked_empty(size, dtype)
                 device_mem = cuda.mem_alloc(size * 4)
                 # Append the device buffer to device bindings.
-                self.bindings.append(int(device_mem))
+                self.bindings.append(device_mem)
 
                 # Append to the appropriate list.
                 if engine.binding_is_input(binding):
                     print("inputmem")
                 else:
                     print("outputmem")
+                print(engine.get_binding_shape(binding), size * 4)
 
             self.engin = engine
             self.context = engine.create_execution_context()
             self.stream = cuda.Stream()
+            print("G2 in load_onnx")
         except Exception:
             print(traceback.format_exc())
 
-    def infer(self, inputdata):
-        try:
-            inputdata = np.stack(inputdata).transpose([0, 3, 1, 2]).astype(np.float32).ravel()
-            bs = input.shape[0]
-            output1 = np.empty((bs, 15*15), np.float32)
-            output2 = np.empty((bs, 1), np.float32)
-            cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
-            # Run inference.
-            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-            # Transfer predictions back from the GPU.
-            cuda.memcpy_dtoh_async(output1, self.bindings[1], self.stream)
-            cuda.memcpy_dtoh_async(output2, self.bindings[2], self.stream)
-            # Synchronize the stream
-            self.stream.synchronize()
-            prob = output1
-            v = output2
-             
-            return prob, v
-        except Exception:
-            print(traceback.format_exc())
 
-    def load_weight(self, weight):
-        # weight = ray.get(weight)
-        try:
-            self.nnet.load_state_dict(weight)
-        except Exception:
-            print(traceback.format_exc())
+
+def get_onnx_bytes_from_remote(model):
+    with Client(('192.168.5.6', 6000) , authkey=b'secret password123') as conn:
+        f = BytesIO()
+        # model.load_state_dict(torch.load('models/224.pt'))
+        model.eval()
+        torch.save(model.state_dict(), f, _use_new_zipfile_serialization=False)
+        print('len:', len(f.getvalue()))
+        conn.send(f.getvalue())
+        conn.send(128)
+        onnxbytes = conn.recv()
+        return onnxbytes
 
 
 @ray.remote(num_cpus=0.1, num_gpus=0.2)
 class Train_srv:
-    def __init__(self, infer_services):
-        self.nnet = Policy_Value().to("cuda:0")
-        self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
-        self.infer_services = infer_services
-        self.batchsize = 1024
-        self.mse_loss = torch.nn.MSELoss()
-        self.kl_loss = torch.nn.KLDivLoss()
-        self.samples = deque(maxlen=50000)
-        self.sn = 0
-        self.epoch = 0
+    def __init__(self):
+        print("Train1100")
+        pass
+    def myinit(self, infer_services:None):
+        try:
+            print("Train110")
+            self.nnet = Policy_Value().to("cuda:0")
+            self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
+            self.infer_services = infer_services
+            self.batchsize = 1024
+            self.mse_loss = torch.nn.MSELoss()
+            self.kl_loss = torch.nn.KLDivLoss()
+            self.samples = deque(maxlen=50000)
+            self.sn = 0
+            self.epoch = 0
+            onnxbytes = get_onnx_bytes_from_remote(self.nnet)
+            ray.wait([item.load_onnx.remote(onnxbytes) for item in self.infer_services])
+            print("GGG after init")
+        except Exception:
+            print(traceback.format_exc())
 
     def _train(self):
         print("Train11")
@@ -259,7 +284,7 @@ class Train_srv:
         try:
             self.samples.extend(samples)
             self.sn += 1
-            if self.sn == 200:
+            if self.sn == 400:
                 self.sn = 0
                 self.train()
         except Exception:
@@ -273,22 +298,22 @@ class Train_srv:
         time.sleep(4)
         torch.save(self.nnet.state_dict(), f"models/{self.epoch}.pt")
         print(f"saved {self.epoch}.pt file...")
-        weight = self.nnet.state_dict()
-        for item in self.infer_services:
-            item.load_weight.remote(weight)
+        onnxbytes = get_onnx_bytes_from_remote(self.nnet)
+        ray.wait([item.load_onnx.remote(onnxbytes) for item in self.infer_services])
         print("Train3")
         self.epoch += 1
 
 
 def main():
     print("GHB1")
-    infer_services = [Infer_srv.remote() for _ in range(4)]
+    infer_services = [Infer_srv.remote() for _ in range(2)]
     print("GHB2")
-    tainer = Train_srv.remote(infer_services)
+    tainer = Train_srv.remote()
+    ray.wait([tainer.myinit.remote(infer_services=infer_services)])
     print("GHB3")
     s = []
-    for i in range(32):
-        s.append(simbatch.remote(infer_services[i % 4], tainer))
+    for i in range(52):
+        s.append(simbatch.remote(infer_services[i % 2], tainer))
     print("GHB4")
     ray.wait(s)
     print("GHB5")

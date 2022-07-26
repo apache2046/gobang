@@ -1,11 +1,11 @@
 # Should run in pytorch 1.2
 import torch
 from multiprocessing.connection import Listener
-import model4 
+from model4 import Policy_Value
 from io import BytesIO
 
 address = ('0.0.0.0', 6000)     # family is deduced to be 'AF_INET'
-model = model4.Policy_Value()
+model = Policy_Value()
 
 with Listener(address, authkey=b'secret password123') as listener:
     while True:
@@ -14,7 +14,7 @@ with Listener(address, authkey=b'secret password123') as listener:
             state_bytes = conn.recv()
             print(type(state_bytes), len(state_bytes))
             batch_size = conn.recv()
-            state_dict = torch.load(BytesIO(state_bytes))
+            state_dict = torch.load(BytesIO(state_bytes), map_location='cpu')
             model.load_state_dict(state_dict)
             dummy_input = torch.randn(batch_size, 5, 15, 15).to(torch.float32)
             f = BytesIO()
