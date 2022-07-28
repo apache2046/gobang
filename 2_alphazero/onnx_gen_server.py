@@ -3,6 +3,7 @@ import torch
 from multiprocessing.connection import Listener
 from model4 import Policy_Value
 from io import BytesIO
+from datetime import datetime
 
 address = ('0.0.0.0', 6000)     # family is deduced to be 'AF_INET'
 model = Policy_Value()
@@ -11,6 +12,7 @@ with Listener(address, authkey=b'secret password123') as listener:
     while True:
         with listener.accept() as conn:
             print('connection accepted from', listener.last_accepted)
+            print(datetime.now().strftime("%D %H:%M:%S"))
             state_bytes = conn.recv()
             print(type(state_bytes), len(state_bytes))
             batch_size = conn.recv()
@@ -34,4 +36,5 @@ with Listener(address, authkey=b'secret password123') as listener:
                 output_names=["prob", "v"]
             )
             print('done', len(f.getvalue()))
+            print('\n')
             conn.send(f.getvalue())
