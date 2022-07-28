@@ -108,11 +108,11 @@ def main():
 
     infer_srv.load_onnx(onnxbytes)
 
-    # import time
-    # stime = time.time()
-    # for _ in range(1000):
-    #     infer_srv.infer(indata)
-    # print("time:", time.time()-stime)
+    import time
+    stime = time.time()
+    for _ in range(1000):
+        infer_srv.infer(indata)
+    print("time:", time.time()-stime)
 
 
     with torch.no_grad():

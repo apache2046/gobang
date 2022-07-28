@@ -13,11 +13,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from back_end import serv
+np.set_printoptions(precision=1, linewidth=1500)
+
 
 if __name__ == "__main__":
     board_state = BoardState()
     nnet = Policy_Value().to("cuda:0")
-    nnet.load_state_dict(torch.load("/home/apache/ray_run/models/224.pt"))
+    nnet.load_state_dict(torch.load("/home/apache/ray_run/models/232.pt"))
     nnet = nnet.to("cuda:0")
     game = GoBang()
     mcts = None
@@ -36,7 +38,7 @@ def clearboard():
     board_state.reset()
     global mcts
     global state
-    mcts = MCTS(game, c_puct=5)
+    mcts = MCTS(game, c_puct=0.1, selfplay=False)
     state = game.start_state()
     print("in clearboard2")
     return True
@@ -67,34 +69,37 @@ def genmove(actor):
     global state
     # print(state)
 
-    mcts = MCTS(game, c_puct=5)
-    for i in range(20000):
-       g = mcts.search(state)
-       print("F1", i)
-       try:
-           state_infer = next(g)
-           while True:
-               print("F2", i)
-               p, v = nnet.infer(state_infer)
-               state_infer = g.send((p, v))
-       except StopIteration:
-           continue
-    pi = mcts.pi(state)
-    print(pi)
-    #action = np.random.choice(len(pi), p=pi)
-    action = np.argmax(pi).tolist()
-    x = action % 15
-    y = action // 15
-    return play(actor, (x, y))
-
-    #pi, v = nnet.infer(state)
-    ##a = game.valid_positions(state)
-    ## pi[a] *= 1000
-    #print(state, pi, v)
-    #action = torch.argmax(pi).tolist()
-    #x = action % 15
-    #y = action // 15
-    #return play(actor, (x, y))
+    if False:
+        mcts = MCTS(game, c_puct=5, selfplay=False)
+        for i in range(10000):
+           g = mcts.search(state)
+           #print("F1", i)
+           try:
+               state_infer = next(g)
+               while True:
+                   #print("F2", i)
+                   p, v = nnet.infer(state_infer)
+                   state_infer = g.send((p, v))
+           except StopIteration:
+               continue
+        pi = mcts.pi(state)
+        print(pi)
+        #action = np.random.choice(len(pi), p=pi)
+        action = int(np.argmax(pi).tolist())
+        x = action % 15
+        y = action // 15
+        return play(actor, (x, y))
+    else:
+        pi, v = nnet.infer(state)
+        #a = game.valid_positions(state)
+        # pi[a] *= 1000
+        print(state, '\n', pi.reshape(15,15), v)
+        #print('### v', v)
+        action = int(np.argmax(pi))
+        x = action % 15
+        y = action // 15
+        print(type(x), type(y), type(actor))
+        return play(actor, (x, y))
 
 if __name__ == "__main__":
     serv(8080, board_size, clearboard, play, genmove)

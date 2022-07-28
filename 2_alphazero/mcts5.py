@@ -4,7 +4,7 @@ from math import sqrt
 import numpy as np
 
 class MCTS:
-    def __init__(self, game: game.GoBang, c_puct=0.001, tau=1):
+    def __init__(self, game: game.GoBang, selfplay=True, c_puct=0.001, tau=1):
         # super.__init__(self)
         self.ps = {}
         # self.qsa = {}
@@ -16,6 +16,7 @@ class MCTS:
         self.c_puct = c_puct
         self.tau = tau
         self.game = game
+        self.selfplay = selfplay
 
     def search(self, state, level=0):
         sk = self.game.state2key(state)
@@ -28,7 +29,7 @@ class MCTS:
             # print("G2.1", level)
             w = self.game.size
             self.ps[sk] = p.reshape((w, w)).astype(np.float64)
-            if level == 0:
+            if level == 0 and self.selfplay:
                 # print("G3", level)
                 vps = state[:, :, 0] + state[:, :, 1] == 0
                 vps_cnt = np.count_nonzero(vps)

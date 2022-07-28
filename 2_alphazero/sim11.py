@@ -16,8 +16,6 @@ import socket
 import traceback
 import trtcommon
 import tensorrt as trt
-import pycuda.autoinit
-import pycuda.driver as cuda
 from multiprocessing.connection import Client
 from io import BytesIO
 
@@ -49,7 +47,7 @@ def executeEpisode(game, epid):
         if epid == 0:
             print("GHB", cnt, f"tau:{tau:.2f}, {time.time()-stime: .2f}")
         stime = time.time()
-        for i in range(2000):
+        for i in range(200):
             yield from mcts.search(state)
         pi = mcts.pi(state, tau)
         samples.append([state, pi, None])
@@ -113,13 +111,14 @@ def simbatch(infer_service, tainer):
         print(traceback.format_exc())
 
 
-@ray.remote(num_cpus=0.1, num_gpus=0.1)
+@ray.remote(num_cpus=1, num_gpus=0.1)
 class Infer_srv:
     def __init__(self):
         self.abc = 123
         pass
 
     def infer(self, inputdata:None):
+
         try:
             # print("infer", type(inputdata))
             bs = len(inputdata)
@@ -127,12 +126,12 @@ class Infer_srv:
             output1 = np.empty((bs, 15*15), np.float32)
             output2 = np.empty((bs, 1), np.float32)
 
-            cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
+            self.cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
             # Run inference.
             self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
             # Transfer predictions back from the GPU.
-            cuda.memcpy_dtoh_async(output1, int(self.bindings[1]), self.stream)
-            cuda.memcpy_dtoh_async(output2, int(self.bindings[2]), self.stream)
+            self.cuda.memcpy_dtoh_async(output1, int(self.bindings[1]), self.stream)
+            self.cuda.memcpy_dtoh_async(output2, int(self.bindings[2]), self.stream)
             # Synchronize the stream
             self.stream.synchronize()
             
@@ -145,7 +144,11 @@ class Infer_srv:
 
     def load_onnx(self, model_bytes):
         try:
+            
             print("G1 in load_onnx")
+            import pycuda.autoinit
+            import pycuda.driver as cuda
+            self.cuda = cuda
             TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
             builder = trt.Builder(TRT_LOGGER)
             network = builder.create_network(trtcommon.EXPLICIT_BATCH)
@@ -173,7 +176,7 @@ class Infer_srv:
                 dtype = trt.nptype(engine.get_binding_dtype(binding))
                 # Allocate host and device buffers
                 # host_mem = cuda.pagelocked_empty(size, dtype)
-                device_mem = cuda.mem_alloc(size * 4)
+                device_mem = self.cuda.mem_alloc(size * 4)
                 # Append the device buffer to device bindings.
                 self.bindings.append(device_mem)
 
@@ -186,7 +189,7 @@ class Infer_srv:
 
             self.engin = engine
             self.context = engine.create_execution_context()
-            self.stream = cuda.Stream()
+            self.stream = self.cuda.Stream()
             print("G2 in load_onnx")
         except Exception:
             print(traceback.format_exc())
@@ -206,7 +209,7 @@ def get_onnx_bytes_from_remote(model):
         return onnxbytes
 
 
-@ray.remote(num_cpus=0.1, num_gpus=0.2)
+@ray.remote(num_cpus=1, num_gpus=0.2)
 class Train_srv:
     def __init__(self):
         print("Train1100")
@@ -220,7 +223,8 @@ class Train_srv:
             self.batchsize = 1024
             self.mse_loss = torch.nn.MSELoss()
             self.kl_loss = torch.nn.KLDivLoss()
-            self.samples = deque(maxlen=50000)
+            self.blackwin_samples = deque(maxlen=50000)
+            self.whitewin_samples = deque(maxlen=50000)
             self.sn = 0
             self.epoch = 0
             onnxbytes = get_onnx_bytes_from_remote(self.nnet)
@@ -232,7 +236,11 @@ class Train_srv:
     def _train(self):
         print("Train11")
         opt = self.opt
-        batch = random.choices(self.samples, k=self.batchsize)
+        batch_blackwin = random.choices(self.blackwin_samples, k=self.batchsize // 2)
+        batch_whitewin = random.choices(self.whitewin_samples, k=self.batchsize // 2)
+        batch = []
+        batch.extend(batch_blackwin)
+        batch.extend(batch_whitewin)
         states = []
         pis = []
         vs = []
@@ -282,7 +290,10 @@ class Train_srv:
 
     def push_samples(self, samples):
         try:
-            self.samples.extend(samples)
+            if len(samples) % 2 == 1:
+                self.blackwin_samples.extend(samples)
+            else:
+                self.whitewin_samples.extend(samples)
             self.sn += 1
             if self.sn == 400:
                 self.sn = 0
@@ -312,7 +323,7 @@ def main():
     ray.wait([tainer.myinit.remote(infer_services=infer_services)])
     print("GHB3")
     s = []
-    for i in range(52):
+    for i in range(8):
         s.append(simbatch.remote(infer_services[i % 2], tainer))
     print("GHB4")
     ray.wait(s)
