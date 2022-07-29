@@ -15,6 +15,7 @@ class MCTS:
         dirichlet_alpha=0.3,
         dirichlet_weight=0.2,
         random_dihedral_reflection=True,
+        reward_scale=1.0,
     ):
         self.ps = {}
         self.wsa = {}
@@ -27,6 +28,7 @@ class MCTS:
         self.random_dihedral_reflection = random_dihedral_reflection
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_weight = dirichlet_weight
+        self.reward_scale = reward_scale
 
     def search(self, state, level=0):
         sk = self.game.state2key(state)
@@ -36,24 +38,27 @@ class MCTS:
             # print("G2", level)
             self.ns[sk] = 1
             if self.random_dihedral_reflection:
+                transform_state = state.copy()
                 rot_degree = random.choice([0, 1, 2, 3])
                 flip_lr = random.choice([0, 1])
                 flip_ud = random.choice([0, 1])
                 if rot_degree > 0:
-                    state = np.rot90(state, rot_degree)
+                    transform_state = np.rot90(transform_state, rot_degree)
                 if flip_lr > 0:
-                    state = np.fliplr(state)
+                    transform_state = np.fliplr(transform_state)
                 if flip_ud > 0:
-                    state = np.flipud(state)
-            p, v = yield state
-            p = p.reshape((w, w)).astype(np.float64)
-            if self.random_dihedral_reflection:
+                    transform_state = np.flipud(transform_state)
+                p, v = yield transform_state
+                p = p.reshape((w, w)).astype(np.float64)
                 if flip_ud > 0:
-                    state = np.flipud(state)
+                    p = np.flipud(p)
                 if flip_lr > 0:
-                    state = np.fliplr(state)
+                    p = np.fliplr(p)
                 if rot_degree > 0:
-                    state = np.rot90(state, -rot_degree)
+                    p = np.rot90(p, -rot_degree)
+            else:
+                p, v = yield state
+                p = p.reshape((w, w)).astype(np.float64)
 
             # print("G2.1", level)
             self.ps[sk] = p
@@ -77,7 +82,7 @@ class MCTS:
         a = u.argmax()
         state_next, isend, reward = self.game.next_state(state, a)
         if isend:
-            v = reward
+            v = reward * self.reward_scale
         else:
             v = yield from self.search(state_next, level + 1)
 

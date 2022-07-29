@@ -19,7 +19,7 @@ np.set_printoptions(precision=1, linewidth=1500)
 if __name__ == "__main__":
     board_state = BoardState()
     nnet = Policy_Value().to("cuda:0")
-    nnet.load_state_dict(torch.load("/home/apache/ray_run/models/232.pt"))
+    nnet.load_state_dict(torch.load("/home/apache/ray_run/models.10/28.pt"))
     nnet = nnet.to("cuda:0")
     game = GoBang()
     mcts = None
