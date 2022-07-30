@@ -12,13 +12,13 @@ import os
 import socket
 import traceback
 from io import BytesIO
-import pymongo
+# import pymongo
 
 print(socket.gethostname(), os.getcwd())
 ray.init(address="auto", _node_ip_address="192.168.5.6")
-dbclient = pymongo.MongoClient("mongodb://root:mongomprc12@localhost:27017/")
-gobang_db = dbclient["gobang"]
-gobang_col1 = gobang_db["kifu2"]
+# dbclient = pymongo.MongoClient("mongodb://root:mongomprc12@localhost:27017/")
+# gobang_db = dbclient["gobang"]
+# gobang_col1 = gobang_db["kifu2"]
 
 
 def executeEpisode(game, epid):
@@ -37,7 +37,7 @@ def executeEpisode(game, epid):
         if epid == 0:
             print("GHB", cnt, f"tau:{tau:.2f}, {time.time()-stime: .2f}")
         stime = time.time()
-        for i in range(2000):
+        for i in range(5000):
             yield from mcts.search(state)
         pi = mcts.pi(state, tau)
         samples.append([state, pi, None])
@@ -86,9 +86,9 @@ def executeEpisodeEndless(epid, tainer):
             winner = "black"
         else:
             winner = "white"
-        gobang_col1.insert_one(
-            {"kifu": board_record.tolist(), "winner": winner, "len": len(trajectory), "traj_cnt": traj_cnt}
-        )
+        # gobang_col1.insert_one(
+        #     {"kifu": board_record.tolist(), "winner": winner, "len": len(trajectory), "traj_cnt": traj_cnt}
+        # )
         print(f"{winner} win!", traj_cnt, len(trajectory))
 
         tainer.push_samples.remote(trajectory)
@@ -101,7 +101,7 @@ def send_and_recv(addr, data):
         return conn.recv()
 
 
-@ray.remote(num_cpus=1)
+@ray.remote(num_cpus=0.5)
 def simbatch(infer_srv_addr, tainer):
     try:
         states = []
@@ -155,8 +155,8 @@ class Train_srv:
             self.batchsize = 2048
             self.mse_loss = torch.nn.MSELoss()
             self.kl_loss = torch.nn.KLDivLoss()
-            self.blackwin_samples = deque(maxlen=250_000)
-            self.whitewin_samples = deque(maxlen=250_000)
+            self.blackwin_samples = deque(maxlen=500_000)
+            self.whitewin_samples = deque(maxlen=500_000)
             self.sn = 0
             self.epoch = 0
             onnxbytes = get_onnx_bytes_from_remote(self.nnet)
@@ -223,7 +223,7 @@ class Train_srv:
             else:
                 self.whitewin_samples.extend(samples)
             self.sn += 1
-            if self.sn == 2000:
+            if self.sn == 5000:
                 self.sn = 0
                 self.train()
         except Exception:
@@ -231,7 +231,7 @@ class Train_srv:
 
     def train(self):
         print("Train1")
-        for i in range(200):
+        for i in range(500):
             self._train()
         print("Train2")
         # time.sleep(4)
