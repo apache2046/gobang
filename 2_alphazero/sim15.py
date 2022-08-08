@@ -21,7 +21,7 @@ ray.init(address="auto", _node_ip_address="192.168.5.6")
 # gobang_db = dbclient["gobang"]
 # gobang_col1 = gobang_db["kifu2"]
 GBOARD_SIZE = 15
-TRAIN_BATCHSIZE = 512
+TRAIN_BATCHSIZE = 2048
 
 def executeEpisode(game, epid, rdb):
     state = game.start_state()
@@ -160,8 +160,8 @@ class Train_srv:
             self.batchsize = 2048
             self.mse_loss = torch.nn.MSELoss()
             self.kl_loss = torch.nn.KLDivLoss()
-            self.blackwin_games = deque(maxlen=50_000)
-            self.whitewin_games = deque(maxlen=50_000)
+            self.blackwin_games = deque(maxlen=30_000)
+            self.whitewin_games = deque(maxlen=30_000)
             self.sn = 0
             self.epoch = 0
             onnxbytes = get_onnx_bytes_from_remote(self.nnet)
@@ -205,7 +205,7 @@ class Train_srv:
             else:
                 self.whitewin_games.append(trajectory)
             self.sn += 1
-            if self.sn == 100:
+            if self.sn == 10000:
                 self.sn = 0
                 self.train()
         except Exception:
@@ -259,7 +259,7 @@ def main():
     ray.wait([tainer.myinit.remote(infer_srv_addresses=infer_srv_addresses)])
     print("GHB3")
     s = []
-    for i in range(8):
+    for i in range(16):
         s.append(simbatch.remote(infer_srv_addresses[i % infer_srv_cnt], tainer))
     print("GHB4")
     ray.wait(s)
