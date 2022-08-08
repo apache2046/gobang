@@ -2,7 +2,7 @@ from multiprocessing.connection import Listener
 from io import BytesIO
 import numpy as np
 
-address = ('0.0.0.0', 6001)     # family is deduced to be 'AF_INET'
+address = ('0.0.0.0', 16001)     # family is deduced to be 'AF_INET'
 result = np.random.randn(128,15*15)
 with Listener(address, authkey=b'secret password123') as listener:
     while True:
@@ -15,4 +15,3 @@ with Listener(address, authkey=b'secret password123') as listener:
                     conn.send('ok')
                 else:
                     print('invalid cmd:', command, data)
-

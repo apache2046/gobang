@@ -130,7 +130,7 @@ class GoBang:
         state = state.copy()
         y = pos // self.size
         x = pos % self.size
-        
+
         state[:, :, 2] = state[:, :, 0]
         state[:, :, 3] = state[:, :, 1]
         actor = state[0, 0, 4]
@@ -148,12 +148,13 @@ class GoBang:
 
     def state2key(self, state):
         # print("GGG", state)
-        return bytes(state)
+        # return bytes(state)
+        return np.packbits(state[:, :, :2]).tobytes()
 
-    def key2state(self, key):
-        size = self.size
-        state = np.frombuffer(key, dtype=np.int8).reshape(size, size)
-        return state
+    # def key2state(self, key):
+    #     size = self.size
+    #     state = np.frombuffer(key, dtype=np.int8).reshape(size, size)
+    #     return state
 
     def key2tensor(self):
         pass

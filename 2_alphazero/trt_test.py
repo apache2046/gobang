@@ -70,15 +70,16 @@ class Infer_srv:
             cuda.memcpy_htod_async(self.bindings[0], inputdata, self.stream)
             # Run inference.
             self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+            #self.context.execute_async(batch_size=1, bindings=self.bindings, stream_handle=self.stream.handle)
             # Transfer predictions back from the GPU.
             cuda.memcpy_dtoh_async(output1, int(self.bindings[1]), self.stream)
             cuda.memcpy_dtoh_async(output2, int(self.bindings[2]), self.stream)
             # Synchronize the stream
             self.stream.synchronize()
-            
+
             prob = output1
             v = output2
-             
+
             return prob, v
         except Exception:
             print(traceback.format_exc())
@@ -87,7 +88,7 @@ def get_onnx_bytes_from_remote(model):
     model.eval()
     with Client(('192.168.5.6', 6000) , authkey=b'secret password123') as conn:
         f = BytesIO()
-        model.load_state_dict(torch.load('models/224.pt'))
+        #model.load_state_dict(torch.load('models/224.pt'))
         model.eval()
         torch.save(model.state_dict(), f, _use_new_zipfile_serialization=False)
         conn.send(f.getvalue())
@@ -99,9 +100,9 @@ def main():
     # indata = np.random.randn(256,5,15,15).astype(np.int8)
     indata = np.random.randint(0,2,(128, 15, 15, 5)).astype(np.int8)
     indata[:, :, :, 4] = 1
-    
+
     m = model4.Policy_Value()
-    m.load_state_dict(torch.load('models/224.pt'))
+    #m.load_state_dict(torch.load('models/224.pt'))
     onnxbytes = get_onnx_bytes_from_remote(m)
 
     infer_srv = Infer_srv()
@@ -110,7 +111,7 @@ def main():
 
     import time
     stime = time.time()
-    for _ in range(1000):
+    for _ in range(10000):
         infer_srv.infer(indata)
     print("time:", time.time()-stime)
 
