@@ -4,7 +4,8 @@ import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
 import numpy as np
-import model4
+#from model4 import Policy_Value
+from model6 import Policy_Value
 import torch
 from multiprocessing.connection import Client
 from io import BytesIO
@@ -170,7 +171,7 @@ def main():
     indata = np.random.randint(0,2,(128, 15, 15, 5)).astype(np.int8)
     indata[:, :, :, 4] = 1
 
-    m = model4.Policy_Value()
+    m = Policy_Value()
     #m.load_state_dict(torch.load('models/224.pt'))
     onnxbytes = get_onnx_bytes_from_remote(m)
 
@@ -180,7 +181,7 @@ def main():
 
     import time
     stime = time.time()
-    for _ in range(1000):
+    for _ in range(10000):
         infer_srv.infer(indata)
     print("time:", time.time()-stime)
 
@@ -204,6 +205,12 @@ def main():
     y = big // 225
     x = big % 225
     print(np.abs(y11-y21).max(), y11[y][x], y21[y][x], y11[y][x]-y21[y][x])
+
+    big = np.abs(y12-y22).argmax()
+    print(big)
+    print(np.abs(y12-y22).max(), y12[big], y22[big], y12[big]-y22[big])
+
+
 
 if __name__ == '__main__':
     main()

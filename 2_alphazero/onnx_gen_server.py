@@ -1,7 +1,8 @@
 # Should run in pytorch 1.2
 import torch
 from multiprocessing.connection import Listener
-from model4 import Policy_Value
+#from model4 import Policy_Value
+from model6 import Policy_Value
 from io import BytesIO
 from datetime import datetime
 

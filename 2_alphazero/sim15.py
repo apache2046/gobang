@@ -3,7 +3,7 @@ import numpy as np
 from mcts7 import MCTS
 from game2 import GoBang
 import time
-from model4 import Policy_Value
+from model6 import Policy_Value
 import torch
 import ray
 import random
@@ -12,8 +12,10 @@ import os
 import socket
 import traceback
 from io import BytesIO
+
 # import pymongo
 import redis
+from pretrain_feeder import Feeder
 
 print(socket.gethostname(), os.getcwd())
 ray.init(address="auto", _node_ip_address="192.168.5.6")
@@ -21,7 +23,8 @@ ray.init(address="auto", _node_ip_address="192.168.5.6")
 # gobang_db = dbclient["gobang"]
 # gobang_col1 = gobang_db["kifu2"]
 GBOARD_SIZE = 15
-TRAIN_BATCHSIZE = 2048
+TRAIN_BATCHSIZE = 2048 + 1024
+
 
 def executeEpisode(game, epid, rdb):
     state = game.start_state()
@@ -67,7 +70,7 @@ def executeEpisode(game, epid, rdb):
             state = next_state
 
 
-def executeEpisodeEndless(epid, tainer, rdb):
+def executeEpisodeEndless(epid, trainer, rdb):
     game = GoBang(size=15)
     traj_cnt = 0
     while True:
@@ -93,7 +96,7 @@ def executeEpisodeEndless(epid, tainer, rdb):
         # )
         print(f"{winner} win!", traj_cnt, len(trajectory))
 
-        tainer.push_games.remote(trajectory)
+        trainer.push_games.remote(trajectory)
 
 
 def send_and_recv(addr, data):
@@ -103,8 +106,8 @@ def send_and_recv(addr, data):
         return conn.recv()
 
 
-@ray.remote(num_cpus=0.5)
-def simbatch(infer_srv_addr, tainer):
+@ray.remote(num_cpus=1)
+def simbatch(infer_srv_addr, trainer):
     try:
         # rdb = redis.Redis(host="192.168.5.6", port=1001, db=2)
         rdb = None
@@ -113,7 +116,7 @@ def simbatch(infer_srv_addr, tainer):
         print("GHB in simbatch")
         for i in range(128):
             # np.random.seed(100+i)
-            item = executeEpisodeEndless(i, tainer, rdb)
+            item = executeEpisodeEndless(i, trainer, rdb)
             g.append(item)
             states.append(next(item))
 
@@ -125,7 +128,7 @@ def simbatch(infer_srv_addr, tainer):
                 # try:
                 states[i] = g[i].send((prob[i], v[i]))
                 # except StopIteration:
-                #     g[i] = executeEpisodeEndless(i, tainer)
+                #     g[i] = executeEpisodeEndless(i, trainer)
                 #     states[i] = next(g[i])
     except Exception:
         print(traceback.format_exc())
@@ -144,7 +147,7 @@ def get_onnx_bytes_from_remote(model):
         return onnxbytes
 
 
-@ray.remote(num_cpus=1, num_gpus=0.2)
+@ray.remote(num_cpus=20, num_gpus=0.2)
 class Train_srv:
     def __init__(self):
         print("Train1100")
@@ -170,23 +173,57 @@ class Train_srv:
         except Exception:
             print(traceback.format_exc())
 
-    def _train(self, states, pis, vs):
+    def _sample_iter(self, batchsize):
+        _states = []
+        _pis = []
+        _vs = []
+        game_samples = list(self.blackwin_games)
+        game_samples.extend(list(self.whitewin_games))
+        for traj in game_samples:
+            for step in traj:
+                _states.append(torch.tensor(step[0], dtype=torch.int8))
+                _pis.append(torch.tensor(step[1], dtype=torch.float16).reshape(GBOARD_SIZE, GBOARD_SIZE))
+                _vs.append(torch.tensor(step[2], dtype=torch.float16))
+
+        idxes = list(range(len(_states) << 3))
+        random.shuffle(idxes)
+        states = []
+        pis = []
+        vs = []
+        for idx in idxes:
+            flip = idx & 1
+            r = (idx & 0x6) >> 1
+            i = idx >> 3
+            s = _states[i]
+            pi = _pis[i]
+            v = _vs[i]
+            if flip == 0:
+                states.append(s.rot90(r))
+                pis.append(pi.rot90(r).flatten())
+                vs.append(v.clone())
+            else:
+                states.append(s.rot90(r).flip(0))
+                pis.append(pi.rot90(r).flip(0).flatten())
+                vs.append(v.clone())
+
+            if len(states) == batchsize:
+                states = torch.stack(states)
+                pis = torch.stack(pis)
+                vs = torch.vstack(vs)
+                yield states, pis, vs
+                states = []
+                pis = []
+                vs = []
+
+    def _train(self):
         print("Train11")
         opt = self.opt
-        idxes = list(range(len(states)))
-        random.shuffle(idxes)
-
         self.nnet.train()
-        for i in range(len(idxes) // TRAIN_BATCHSIZE):
-            idx = idxes[i * TRAIN_BATCHSIZE : (i + 1) * TRAIN_BATCHSIZE]
-            state = states[idx]
-            pi = pis[idx]
-            v = vs[idx]
+        for state, pi, v in self._sample_iter(TRAIN_BATCHSIZE):
             # print("G123", idx, pi.shape, v.shape)
-
-            state = state.permute(0, 3, 1, 2).to("cuda:0")
-            pi = pi.to("cuda:0")
-            v = v.to("cuda:0")
+            state = state.permute(0, 3, 1, 2).to(torch.float32).to("cuda:0")
+            pi = pi.to(torch.float32).to("cuda:0")
+            v = v.to(torch.float32).to("cuda:0")
 
             pred_pi, pred_v = self.nnet(state)
             pi_loss = -torch.mean((pi * torch.log(torch.clip(pred_pi, 1e-9, 1 - 1e-9))).sum(1))
@@ -205,7 +242,7 @@ class Train_srv:
             else:
                 self.whitewin_games.append(trajectory)
             self.sn += 1
-            if self.sn == 10000:
+            if self.sn == 20000:
                 self.sn = 0
                 self.train()
         except Exception:
@@ -213,32 +250,8 @@ class Train_srv:
 
     def train(self):
         print("Train1")
-        states = []
-        pis = []
-        vs = []
-        game_samples = list(self.blackwin_games)
-        game_samples.extend(list(self.whitewin_games))
-        for traj in game_samples:
-            for step in traj:
-                s = torch.tensor(step[0], dtype=torch.float32)
-                pi = torch.tensor(step[1], dtype=torch.float32).reshape(GBOARD_SIZE, GBOARD_SIZE)
-                v = torch.tensor(step[2], dtype=torch.float32)
-
-                for r in range(4):
-                    states.append(s.rot90(r))
-                    pis.append(pi.rot90(r).flatten())
-                    vs.append(v.clone())
-
-                    states.append(s.rot90(r).flip(0))
-                    pis.append(pi.rot90(r).flip(0).flatten())
-                    vs.append(v.clone())
-
-        states = torch.stack(states)
-        pis = torch.stack(pis)
-        vs = torch.vstack(vs)
-
         for i in range(2):
-            self._train(states, pis, vs)
+            self._train()
         print("Train2")
         # time.sleep(4)
         torch.save(self.nnet.state_dict(), f"models/{self.epoch}.pt")
@@ -255,15 +268,17 @@ def main():
     infer_srv_cnt = 4
     infer_srv_addresses = [("192.168.5.106", 6001 + i) for i in range(infer_srv_cnt)]
     print("GHB2")
-    tainer = Train_srv.remote()
-    ray.wait([tainer.myinit.remote(infer_srv_addresses=infer_srv_addresses)])
+    trainer = Train_srv.remote()
+    ray.wait([trainer.myinit.remote(infer_srv_addresses=infer_srv_addresses)])
     print("GHB3")
-    s = []
-    for i in range(16):
-        s.append(simbatch.remote(infer_srv_addresses[i % infer_srv_cnt], tainer))
-    print("GHB4")
-    ray.wait(s)
+    # s = []
+    # for i in range(16):
+    #     s.append(simbatch.remote(infer_srv_addresses[i % infer_srv_cnt], trainer))
+    # print("GHB4")
+    # ray.wait(s)
     print("GHB5")
+    feeder = Feeder()
+    feeder.feed(trainer)
     while True:
         time.sleep(1)
 
