@@ -30,7 +30,7 @@ for x in gobang_col1.find():
     # print(type(y)) #, type(y[0]), type(y[0,0]), y[0,0])
     # print(list(y))
     cnt += 1
-    if cnt > 3000:
+    if cnt > 20000:
         break
     # break
 print(cnt)

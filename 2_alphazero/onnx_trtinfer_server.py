@@ -89,7 +89,7 @@ def main():
     address = ("0.0.0.0", args.port)  # family is deduced to be 'AF_INET'
     print(address)
     infer_srv = Infer_srv()
-    with Listener(address, authkey=b"secret password123") as listener:
+    with Listener(address, authkey=b"secret password123", backlog=100) as listener:
         while True:
             with listener.accept() as conn:
                 command, data = conn.recv()

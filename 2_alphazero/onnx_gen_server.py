@@ -9,7 +9,7 @@ from datetime import datetime
 address = ('0.0.0.0', 6000)     # family is deduced to be 'AF_INET'
 model = Policy_Value()
 
-with Listener(address, authkey=b'secret password123') as listener:
+with Listener(address, authkey=b'secret password123', backlog=100) as listener:
     while True:
         with listener.accept() as conn:
             print('connection accepted from', listener.last_accepted)

@@ -46,9 +46,12 @@ class EngineCalibrator(trt.IInt8EntropyCalibrator2):
         """
 
         try:
+            if self.cnt > 1000:
+                return None
             batch = self.data[128 * self.cnt : 128 * self.cnt + 128]
             batch = batch.astype(np.float32)
             cuda.memcpy_htod(self.batch_allocation, batch)
+            self.cnt += 1
             return [int(self.batch_allocation)]
         except StopIteration:
             print("Finished calibration batches")
@@ -88,7 +91,7 @@ class Infer_srv:
             builder = trt.Builder(TRT_LOGGER)
             network = builder.create_network(trtcommon.EXPLICIT_BATCH)
             config = builder.create_builder_config()
-            config.set_flag(trt.BuilderFlag.FP16)
+            # config.set_flag(trt.BuilderFlag.FP16)
             config.set_flag(trt.BuilderFlag.INT8)
             config.int8_calibrator = EngineCalibrator("./calibration.cache")
             parser = trt.OnnxParser(network, TRT_LOGGER)
@@ -160,7 +163,7 @@ def main():
     address = ("0.0.0.0", args.port)  # family is deduced to be 'AF_INET'
     print(address)
     infer_srv = Infer_srv()
-    with Listener(address, authkey=b"secret password123") as listener:
+    with Listener(address, authkey=b"secret password123", backlog=100) as listener:
         while True:
             with listener.accept() as conn:
                 command, data = conn.recv()

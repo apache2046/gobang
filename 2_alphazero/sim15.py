@@ -16,6 +16,7 @@ from io import BytesIO
 # import pymongo
 import redis
 from pretrain_feeder import Feeder
+from clienttimeout import ClientWithTimeout
 
 print(socket.gethostname(), os.getcwd())
 ray.init(address="auto", _node_ip_address="192.168.5.6")
@@ -23,7 +24,7 @@ ray.init(address="auto", _node_ip_address="192.168.5.6")
 # gobang_db = dbclient["gobang"]
 # gobang_col1 = gobang_db["kifu2"]
 GBOARD_SIZE = 15
-TRAIN_BATCHSIZE = 2048 + 1024
+TRAIN_BATCHSIZE = 2048
 
 
 def executeEpisode(game, epid, rdb):
@@ -33,7 +34,7 @@ def executeEpisode(game, epid, rdb):
     board_record = np.zeros((game.size, game.size), dtype=np.uint8)
     stime = time.time()
     tau = 1.0
-    mcts = MCTS(game, rdb, c_puct=5, dirichlet_alpha=0.05, dirichlet_weight=0.25, reward_scale=10.0)
+    mcts = MCTS(game, rdb, c_puct=5, dirichlet_alpha=0.05, dirichlet_weight=0.25, reward_scale=4.0)
     while True:
         cnt += 1
         if cnt > 12:
@@ -96,14 +97,25 @@ def executeEpisodeEndless(epid, trainer, rdb):
         # )
         print(f"{winner} win!", traj_cnt, len(trajectory))
 
-        trainer.push_games.remote(trajectory)
+        # wait here, saving GPU resource for training
+        ray.wait([trainer.push_games.remote(trajectory)])
 
 
-def send_and_recv(addr, data):
+def send_and_recv(addr, data , timeout=20):
     # print('in send_and_recv', addr)
     with Client(addr, authkey=b"secret password123") as conn:
         conn.send(data)
         return conn.recv()
+    #while True:
+    #    try:
+    #        with ClientWithTimeout(addr, authkey=b"secret password123", timeout=timeout) as conn:
+    #            conn.send(data)
+    #            return conn.recv()
+    #    except Exception as e:
+    #        print('send_and_recv exception', e)
+    #        print(traceback.format_exc())
+    #        time.sleep(2)
+    #        continue
 
 
 @ray.remote(num_cpus=1)
@@ -147,7 +159,7 @@ def get_onnx_bytes_from_remote(model):
         return onnxbytes
 
 
-@ray.remote(num_cpus=20, num_gpus=0.2)
+@ray.remote(num_cpus=6, num_gpus=0.2)
 class Train_srv:
     def __init__(self):
         print("Train1100")
@@ -157,18 +169,19 @@ class Train_srv:
         try:
             print("Train110")
             # self.rdb = redis.Redis(host="192.168.5.6", port=1001, db=2)
-            self.nnet = Policy_Value().to("cuda:0")
+            nnet = Policy_Value()
+            nnet.load_state_dict(torch.load("models/126.1.0.pt", map_location='cpu'))
+            self.nnet = nnet.to("cuda:0")
             self.opt = torch.optim.AdamW(params=self.nnet.parameters(), lr=1e-4)
             self.infer_srv_addresses = infer_srv_addresses
-            self.batchsize = 2048
             self.mse_loss = torch.nn.MSELoss()
             self.kl_loss = torch.nn.KLDivLoss()
-            self.blackwin_games = deque(maxlen=30_000)
-            self.whitewin_games = deque(maxlen=30_000)
+            self.blackwin_games = deque(maxlen=40_000)
+            self.whitewin_games = deque(maxlen=40_000)
             self.sn = 0
             self.epoch = 0
             onnxbytes = get_onnx_bytes_from_remote(self.nnet)
-            [send_and_recv(addr, ("load_onnx", onnxbytes)) for addr in self.infer_srv_addresses]
+            [send_and_recv(addr, ("load_onnx", onnxbytes), timeout=300) for addr in self.infer_srv_addresses]
             print("GGG after init")
         except Exception:
             print(traceback.format_exc())
@@ -250,14 +263,14 @@ class Train_srv:
 
     def train(self):
         print("Train1")
-        for i in range(2):
+        for i in range(1):
             self._train()
         print("Train2")
         # time.sleep(4)
         torch.save(self.nnet.state_dict(), f"models/{self.epoch}.pt")
         print(f"saved {self.epoch}.pt file...")
         onnxbytes = get_onnx_bytes_from_remote(self.nnet)
-        [send_and_recv(addr, ("load_onnx", onnxbytes)) for addr in self.infer_srv_addresses]
+        [send_and_recv(addr, ("load_onnx", onnxbytes), timeout=300) for addr in self.infer_srv_addresses]
         print("Train3")
         # self.rdb.flushdb()
         self.epoch += 1
@@ -271,14 +284,17 @@ def main():
     trainer = Train_srv.remote()
     ray.wait([trainer.myinit.remote(infer_srv_addresses=infer_srv_addresses)])
     print("GHB3")
-    # s = []
-    # for i in range(16):
-    #     s.append(simbatch.remote(infer_srv_addresses[i % infer_srv_cnt], trainer))
-    # print("GHB4")
-    # ray.wait(s)
+    s = []
+    for i in range(52):
+        #time.sleep(1)
+        s.append(simbatch.remote(infer_srv_addresses[i % infer_srv_cnt], trainer))
+    print("GHB4")
+    ray.wait(s)
     print("GHB5")
-    feeder = Feeder()
-    feeder.feed(trainer)
+
+    # feeder = Feeder()
+    # feeder.feed(trainer)
+
     while True:
         time.sleep(1)
 
