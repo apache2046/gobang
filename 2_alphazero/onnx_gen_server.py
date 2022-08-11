@@ -2,7 +2,8 @@
 import torch
 from multiprocessing.connection import Listener
 #from model4 import Policy_Value
-from model6 import Policy_Value
+#from model6 import Policy_Value
+from model8 import Policy_Value
 from io import BytesIO
 from datetime import datetime
 
@@ -19,7 +20,8 @@ with Listener(address, authkey=b'secret password123', backlog=100) as listener:
             batch_size = conn.recv()
             state_dict = torch.load(BytesIO(state_bytes), map_location='cpu')
             model.load_state_dict(state_dict)
-            dummy_input = torch.randn(batch_size, 5, 15, 15).to(torch.float32)
+            #dummy_input = torch.randn(batch_size, 5, 15, 15).to(torch.float32)
+            dummy_input = torch.randn(batch_size, 3, 15, 15).to(torch.float32)
             f = BytesIO()
             torch.onnx.export(
                 model,

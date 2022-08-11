@@ -1,7 +1,7 @@
 import pymongo
 import numpy as np
 import json
-from game2 import GoBang
+from game3 import GoBang
 
 dbclient = pymongo.MongoClient("mongodb://root:mongomprc12@192.168.5.6:27017/")
 gobang_db = dbclient["gobang"]
@@ -37,4 +37,4 @@ print(cnt)
 samples = np.stack(samples)
 np.random.shuffle(samples)
 print(samples.shape)
-np.savez_compressed("1.npz", a=samples)
+np.savez_compressed("3.npz", a=samples)

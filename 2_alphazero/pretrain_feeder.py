@@ -1,7 +1,7 @@
 import pymongo
 import numpy as np
 import json
-from game2 import GoBang
+from game3 import GoBang
 
 
 class Feeder:

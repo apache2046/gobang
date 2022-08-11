@@ -24,10 +24,10 @@ class EngineCalibrator(trt.IInt8EntropyCalibrator2):
         self.image_batcher = None
         self.batch_allocation = None
         self.batch_generator = None
-        x = np.load("1.npz")
+        x = np.load("3.npz")
         self.data = x["a"]
         self.cnt = 0
-        self.batch_allocation = cuda.mem_alloc(4 * 128 * 15 * 15 * 5)
+        self.batch_allocation = cuda.mem_alloc(4 * 128 * 15 * 15 * 3)
 
     def get_batch_size(self):
         """
