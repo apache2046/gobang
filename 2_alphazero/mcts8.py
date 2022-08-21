@@ -77,7 +77,7 @@ class MCTS:
             # alpha = (w * w) / vps_cnt * 0.03
             alpha = (w * w) / vps_cnt * self.dirichlet_alpha
             noise = np.random.dirichlet(alpha * np.ones(vps_cnt))
-            noise *= psa[sk][vps].max() / noise.max()
+            #noise *= psa[sk][vps].max() / noise.max()
             psa[sk][vps] = (1 - self.dirichlet_weight) * psa[sk][vps] + self.dirichlet_weight * noise
 
         u = wsa[sk] / (nsa[sk] + 1) + self.c_puct * psa[sk] * sqrt(ns[sk]) / (nsa[sk] + 1)

@@ -165,18 +165,21 @@ def main():
     infer_srv = Infer_srv()
     with Listener(address, authkey=b"secret password123", backlog=100) as listener:
         while True:
-            with listener.accept() as conn:
-                command, data = conn.recv()
-                if command == "infer":
-                    result = infer_srv.infer(data)
-                    conn.send(result)
-                elif command == "load_onnx":
-                    print("load_onnx1", datetime.now().strftime("%D %H:%M:%S"))
-                    infer_srv.load_onnx(data)
-                    print("load_onnx2\n")
-                    conn.send("ok")
-                else:
-                    print("invalid cmd:", command, data)
+            try:
+                with listener.accept() as conn:
+                    command, data = conn.recv()
+                    if command == "infer":
+                        result = infer_srv.infer(data)
+                        conn.send(result)
+                    elif command == "load_onnx":
+                        print("load_onnx1", datetime.now().strftime("%D %H:%M:%S"))
+                        infer_srv.load_onnx(data)
+                        print("load_onnx2\n")
+                        conn.send("ok")
+                    else:
+                        print("invalid cmd:", command, data)
+            except Exception as e:
+                print(e, datetime.now().strftime("%D %H:%M:%S"))
 
 
 if __name__ == "__main__":
